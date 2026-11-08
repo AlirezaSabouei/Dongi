@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Backend.Tests/">
+    <Project Path="Backend.Tests/Dongi.Api.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Backend/">
+    <Project Path="Backend/Dongi.Api.csproj" />
+  </Folder>
+</Solution>

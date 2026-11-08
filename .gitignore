@@ -238,6 +238,8 @@ PublishScripts/
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
+# Workspace-local NuGet restore folder (used by sandboxed builds/tests)
+.nuget/
 
 # Microsoft Azure Build Output
 csx/
