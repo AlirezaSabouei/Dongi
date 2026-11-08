@@ -1,0 +1,6 @@
+@Dongi.Api_HostAddress = http://localhost:5080
+
+GET {{Dongi.Api_HostAddress}}/health
+Accept: application/json
+
+###
