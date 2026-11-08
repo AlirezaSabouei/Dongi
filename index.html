@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>دنگی — خرج‌های مشترک</title>
+    <meta
+      name="description"
+      content="دنگی خرج‌های مشترک را ساده می‌کند: گروه بسازید، هزینه‌ها را ثبت کنید و با دوستانتان حساب‌ها را تسویه کنید."
+    />
+    <meta name="theme-color" content="#0b1120" />
+    <meta name="color-scheme" content="light dark" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180" />
+
+    <link rel="stylesheet" href="css/styles.css" />
+    <script src="js/config.js"></script>
+    <script type="module" src="js/app.js"></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#app">پرش به محتوا</a>
+
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="app-header-inner">
+          <a class="brand" href="#/groups" aria-label="خانهٔ دنگی">
+            <img class="brand-mark" src="icons/icon.svg" alt="" width="34" height="34" />
+            <span class="brand-name">دنگی</span>
+          </a>
+
+          <div class="header-tools">
+            <nav class="app-nav" aria-label="ناوبری اصلی">
+              <a href="#/login" data-nav="login">ورود</a>
+              <a href="#/groups" data-nav="groups">گروه‌ها</a>
+            </nav>
+            <span
+              id="connection-status"
+              class="status-pill"
+              data-state="online"
+              role="status"
+              aria-live="polite"
+            >
+              آنلاین
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main id="app" class="app-main" tabindex="-1">
+        <p class="loading">در حال بارگذاری دنگی&hellip;</p>
+      </main>
+
+      <footer class="app-footer">
+        <p>دنگی &middot; اسکلت فرانت‌اند (اپیک ۰)</p>
+        <p class="app-footer-meta">
+          API <code id="api-base-label" dir="ltr">http://localhost:5080</code>
+        </p>
+      </footer>
+    </div>
+
+    <div id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
+      <p class="update-toast-text">نسخهٔ تازه‌ای از دنگی آماده است.</p>
+      <div class="update-toast-actions">
+        <button type="button" class="button button-small" data-update-reload>بارگذاری مجدد</button>
+        <button type="button" class="button button-small button-ghost" data-update-dismiss>
+          بعداً
+        </button>
+      </div>
+    </div>
+
+    <noscript>
+      <p class="noscript">دنگی برای کار کردن به فعال بودن جاوااسکریپت نیاز دارد.</p>
+    </noscript>
+  </body>
+</html>
