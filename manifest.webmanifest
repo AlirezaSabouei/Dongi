@@ -1,0 +1,57 @@
+{
+  "name": "دنگی — خرج‌های مشترک",
+  "short_name": "دنگی",
+  "description": "دنگی خرج‌های مشترک را ساده می‌کند: گروه بسازید، هزینه‌ها را ثبت کنید و با دوستانتان حساب‌ها را تسویه کنید.",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "گروه‌ها",
+      "short_name": "گروه‌ها",
+      "description": "گروه‌های خرج مشترک خود را باز کنید",
+      "url": "./#/groups",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "ورود",
+      "short_name": "ورود",
+      "description": "ورود به دنگی",
+      "url": "./#/login",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
