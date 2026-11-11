@@ -87,8 +87,10 @@ window.DONGI_CONFIG = {
 };
 ```
 
-Only the health endpoint is wired up; auth and groups endpoints do not exist
-yet, so the views use placeholder content.
+Only the health endpoint is wired up in this frontend scaffold. The backend now
+also implements auth and group endpoints (see
+[`Backend/README.md`](Backend/README.md)), but the views still use placeholder
+content until the frontend auth and groups stories land.
 
 ## Routes
 

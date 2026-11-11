@@ -4,10 +4,11 @@ using MongoDB.Driver;
 namespace Dongi.Api.Data;
 
 /// <summary>
-/// Creates the indexes the OTP flow depends on: TTL indexes that let MongoDB
-/// remove expired OTPs and stale rate-limit counters, and the unique phone index
-/// for users. Index creation runs in the background and never blocks startup, so
-/// a temporarily unreachable database does not take the API down.
+/// Creates the indexes the API depends on: TTL indexes that let MongoDB remove
+/// expired OTPs and stale rate-limit counters, the unique phone index for users,
+/// and the unique invite-code index plus member lookup index for groups. Index
+/// creation runs in the background and never blocks startup, so a temporarily
+/// unreachable database does not take the API down.
 /// </summary>
 internal sealed class MongoIndexInitializer(
     MongoDbContext context,
@@ -49,7 +50,7 @@ internal sealed class MongoIndexInitializer(
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "MongoDB indexes could not be created. OTP TTL cleanup may be unavailable.");
+                logger.LogError(exception, "MongoDB indexes could not be created. Expiry cleanup and invite-code uniqueness guarantees may be unavailable.");
             }
         }
     }
@@ -77,6 +78,18 @@ internal sealed class MongoIndexInitializer(
             new CreateIndexModel<User>(
                 Builders<User>.IndexKeys.Ascending(user => user.Phone),
                 new CreateIndexOptions { Unique = true, Name = "unique_phone" }),
+            cancellationToken: cancellationToken);
+
+        var groups = database.GetCollection<Group>(MongoCollections.Groups);
+        await groups.Indexes.CreateOneAsync(
+            new CreateIndexModel<Group>(
+                Builders<Group>.IndexKeys.Ascending(group => group.InviteCode),
+                new CreateIndexOptions { Unique = true, Name = "unique_inviteCode" }),
+            cancellationToken: cancellationToken);
+        await groups.Indexes.CreateOneAsync(
+            new CreateIndexModel<Group>(
+                Builders<Group>.IndexKeys.Ascending(group => group.MemberIds),
+                new CreateIndexOptions { Name = "memberIds" }),
             cancellationToken: cancellationToken);
     }
 }

@@ -1,4 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Dongi.Api.Auth;
 using Dongi.Api.Data;
@@ -9,6 +13,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Dongi.Api.Tests.Infrastructure;
@@ -27,6 +33,7 @@ public class DongiApiFactory : WebApplicationFactory<Program>
     public const string TestJwtSecret = "dongi-integration-test-jwt-signing-secret-0123456789";
     public const string TestJwtIssuer = "dongi-tests";
     public const string TestJwtAudience = "dongi-tests";
+    public const string TestFrontendBaseUrl = "http://localhost:5173";
 
     private readonly string _databaseName = $"dongi_test_{Guid.NewGuid():N}";
     private readonly MongoClient _mongoClient;
@@ -65,6 +72,61 @@ public class DongiApiFactory : WebApplicationFactory<Program>
     {
         var stream = await response.Content.ReadAsStreamAsync();
         return await JsonDocument.ParseAsync(stream);
+    }
+
+    /// <summary>Creates a token for a user id without going through the OTP flow.</summary>
+    public static string CreateTokenFor(ObjectId userId)
+    {
+        var now = DateTime.UtcNow;
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtSecret)),
+            SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: TestJwtIssuer,
+            audience: TestJwtAudience,
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())],
+            notBefore: now,
+            expires: now.AddDays(1),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>Creates an HTTP client authenticated as a freshly generated user.</summary>
+    public HttpClient CreateAuthenticatedClient(ObjectId userId)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateTokenFor(userId));
+        return client;
+    }
+
+    /// <summary>
+    /// Waits for the background index initializer to create a named index. Useful
+    /// for tests that depend on a unique-index guarantee rather than app logic.
+    /// </summary>
+    public async Task WaitForIndexAsync(string collectionName, string indexName)
+    {
+        var collection = Database.GetCollection<BsonDocument>(collectionName);
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            using var cursor = await collection.Indexes.ListAsync();
+            var indexes = await cursor.ToListAsync();
+
+            if (indexes.Any(index =>
+                    index.TryGetValue("name", out var name) && name.AsString == indexName))
+            {
+                return;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException(
+            $"Index '{indexName}' was not created on '{collectionName}' within 15 seconds.");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -106,7 +168,24 @@ public class DongiApiFactory : WebApplicationFactory<Program>
                 settings.AuthIpPermitLimit = IpPermitLimit;
                 settings.AuthIpWindowMinutes = 60;
             });
+
+            services.Configure<GroupSettings>(settings =>
+            {
+                settings.FrontendBaseUrl = TestFrontendBaseUrl;
+                settings.NameMaxLength = 100;
+                settings.MaxInviteCodeAttempts = 5;
+            });
+
+            ConfigureAdditionalTestServices(services);
         });
+    }
+
+    /// <summary>
+    /// Hook for test-specific service replacements (for example a scripted invite
+    /// code generator). Called after the shared test configuration.
+    /// </summary>
+    protected virtual void ConfigureAdditionalTestServices(IServiceCollection services)
+    {
     }
 
     protected override void Dispose(bool disposing)
