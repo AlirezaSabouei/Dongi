@@ -44,8 +44,8 @@ public sealed class PhoneRateLimitTests : IClassFixture<DongiApiFactory>
     [Fact]
     public async Task EquivalentPhoneFormats_ShareTheSameLimitBucket()
     {
-        // +98912 123 4567, +98912-123-4567, 00989121234567 and +989121234567
-        // must all count against one normalized key.
+        // +98912 123 4567, +98912-123-4567, 09121234567, 00989121234567 and
+        // +989121234567 must all count against one normalized key.
         var normalized = DongiApiFactory.NewPhoneNumber();
         var digits = normalized[1..];
 
@@ -53,6 +53,7 @@ public sealed class PhoneRateLimitTests : IClassFixture<DongiApiFactory>
         {
             normalized,
             "+" + digits[..3] + " " + digits[3..6] + " " + digits[6..],
+            "0" + digits[2..],
             "+" + digits[..3] + "-" + digits[3..6] + "-" + digits[6..],
             "00" + digits,
         };
@@ -62,14 +63,17 @@ public sealed class PhoneRateLimitTests : IClassFixture<DongiApiFactory>
             Assert.Equal(HttpStatusCode.OK, (await RequestCodeAsync(variant)).StatusCode);
         }
 
-        var blocked = await RequestCodeAsync(variants[3]);
-
-        Assert.Equal(HttpStatusCode.TooManyRequests, blocked.StatusCode);
+        foreach (var variant in variants.Skip(3))
+        {
+            Assert.Equal(
+                HttpStatusCode.TooManyRequests,
+                (await RequestCodeAsync(variant)).StatusCode);
+        }
 
         var limits = _factory.Database.GetCollection<BsonDocument>(MongoCollections.OtpRequestLimits);
         var limit = await limits.Find(Builders<BsonDocument>.Filter.Eq("_id", normalized)).FirstOrDefaultAsync();
         Assert.NotNull(limit);
-        Assert.Equal(4, limit["count"].ToInt32());
+        Assert.Equal(5, limit["count"].ToInt32());
     }
 
     [Fact]
