@@ -14,6 +14,7 @@
 import {
   ApiError,
   createGroup,
+  createGroupExpense,
   getGroup,
   getGroupInvite,
   joinGroup,
@@ -22,7 +23,10 @@ import {
 } from './api.js';
 import { clearAuthToken, getAuthUserId } from './auth.js';
 import {
+  calculateEqualSplit,
   formatExpenseAmount,
+  normalizeMemberIds,
+  parseRialAmount,
   renderExpenseList,
   sumExpenseAmounts,
   toExpenseArray,
@@ -31,6 +35,8 @@ import { initShell } from './shell.js';
 
 const FA_NUMBER = new Intl.NumberFormat('fa-IR');
 const MAX_GROUP_NAME_LENGTH = 100;
+const MAX_EXPENSE_TITLE_LENGTH = 200;
+const MAX_EXPENSE_DESCRIPTION_LENGTH = 1000;
 const LIST_HASH = '#/groups';
 const TOAST_DURATION_MS = 5000;
 
@@ -65,6 +71,17 @@ const MESSAGES = {
   inviteCopyFailed: 'کپی لینک دعوت ممکن نشد. اتصال مرورگر را بررسی کنید.',
   inviteNotMember: 'شما عضو این گروه نیستید و نمی‌توانید دعوت بفرستید.',
   inviteGroupGone: 'این گروه دیگر وجود ندارد.',
+  expenseTitleRequired: 'عنوان هزینه را وارد کنید.',
+  expenseTitleTooLong: `عنوان هزینه باید حداکثر ${MAX_EXPENSE_TITLE_LENGTH} نویسه باشد.`,
+  expenseDescriptionTooLong: `توضیح باید حداکثر ${MAX_EXPENSE_DESCRIPTION_LENGTH} نویسه باشد.`,
+  expenseAmountInvalid: 'مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد.',
+  expenseMembersRequired: 'حداقل یک عضو را برای تقسیم انتخاب کنید.',
+  expenseCreated: 'هزینه ثبت شد.',
+  expenseCreateFailed: 'ثبت هزینه ممکن نشد. دوباره تلاش کنید.',
+  expenseForbidden: 'شما اجازهٔ ثبت هزینه در این گروه را ندارید.',
+  expenseUserUnknown:
+    'شناسهٔ کاربر جاری پیدا نشد. لطفاً خارج شوید و دوباره وارد شوید.',
+  expensePreviewHint: 'برای دیدن تقسیم، مبلغ و حداقل یک عضو را مشخص کنید.',
 };
 
 const refs = {};
@@ -81,6 +98,8 @@ const state = {
   currentUserId: null,
   joinFromRoute: false,
   redirecting: false,
+  expenseMembers: [],
+  expensePayerId: '',
 };
 
 let toastTimer = 0;
@@ -138,6 +157,25 @@ function initGroups() {
   refs.expenseCount = document.querySelector('[data-detail-expense-count]');
   refs.expenseTotal = document.querySelector('[data-detail-expense-total]');
 
+  refs.openExpense = document.querySelector('[data-open-expense]');
+  refs.expenseDialog = document.querySelector('[data-expense-dialog]');
+  refs.expenseForm = document.querySelector('[data-expense-form]');
+  refs.expenseTitle = document.querySelector('#expense-title-input');
+  refs.expenseDescription = document.querySelector('#expense-description');
+  refs.expenseAmount = document.querySelector('#expense-amount');
+  refs.expenseTitleError = document.querySelector('[data-expense-title-error]');
+  refs.expenseDescriptionError = document.querySelector(
+    '[data-expense-description-error]',
+  );
+  refs.expenseAmountError = document.querySelector('[data-expense-amount-error]');
+  refs.expenseMembers = document.querySelector('[data-expense-members]');
+  refs.expenseMembersError = document.querySelector(
+    '[data-expense-members-error]',
+  );
+  refs.expensePreview = document.querySelector('[data-expense-preview]');
+  refs.expenseFormError = document.querySelector('[data-expense-error]');
+  refs.expenseSubmit = document.querySelector('[data-expense-submit]');
+
   refs.toast = document.querySelector('[data-toast]');
 
   if (!refs.listView || !refs.detailView || !refs.groupList) return;
@@ -162,6 +200,11 @@ function bindEvents() {
   document
     .querySelectorAll('[data-close-join]')
     .forEach((button) => button.addEventListener('click', closeJoinDialog));
+  document
+    .querySelectorAll('[data-close-expense]')
+    .forEach((button) => button.addEventListener('click', closeExpenseDialog));
+
+  refs.openExpense?.addEventListener('click', openExpenseDialog);
 
   refs.retry?.addEventListener('click', () => loadGroups({ force: true }));
   refs.detailRetry?.addEventListener('click', () => {
@@ -174,7 +217,9 @@ function bindEvents() {
 
   refs.createForm?.addEventListener('submit', onCreateSubmit);
   refs.joinForm?.addEventListener('submit', onJoinSubmit);
+  refs.expenseForm?.addEventListener('submit', onExpenseSubmit);
   refs.joinDialog?.addEventListener('close', onJoinDialogClosed);
+  refs.expenseDialog?.addEventListener('close', resetExpenseErrors);
 
   refs.createName?.addEventListener('input', () => {
     if (refs.createName.getAttribute('aria-invalid') === 'true') {
@@ -185,6 +230,27 @@ function bindEvents() {
     if (refs.joinCode.getAttribute('aria-invalid') === 'true') {
       setFieldError(refs.joinCode, refs.joinError, '');
     }
+  });
+
+  refs.expenseTitle?.addEventListener('input', () => {
+    if (refs.expenseTitle.getAttribute('aria-invalid') === 'true') {
+      setFieldError(refs.expenseTitle, refs.expenseTitleError, '');
+    }
+  });
+  refs.expenseDescription?.addEventListener('input', () => {
+    if (refs.expenseDescription.getAttribute('aria-invalid') === 'true') {
+      setFieldError(
+        refs.expenseDescription,
+        refs.expenseDescriptionError,
+        '',
+      );
+    }
+  });
+  refs.expenseAmount?.addEventListener('input', () => {
+    if (refs.expenseAmount.getAttribute('aria-invalid') === 'true') {
+      setFieldError(refs.expenseAmount, refs.expenseAmountError, '');
+    }
+    updateExpensePreview();
   });
 
   window.addEventListener('hashchange', route);
@@ -870,6 +936,7 @@ function closeDialogs() {
   state.joinFromRoute = false;
   hideDialog(refs.createDialog);
   hideDialog(refs.joinDialog);
+  hideDialog(refs.expenseDialog);
 }
 
 function showDialog(dialog) {
@@ -984,6 +1051,306 @@ async function onJoinSubmit(event) {
   } finally {
     setBusy(refs.joinSubmit, false, 'در حال پیوستن…', 'پیوستن به گروه');
   }
+}
+
+function openExpenseDialog() {
+  if (!state.detailId || !state.detailGroup) return;
+
+  const payerId = state.currentUserId;
+  if (!payerId) {
+    showToast(MESSAGES.expenseUserUnknown, 'error');
+    return;
+  }
+
+  const members = state.detailMembers.slice();
+  if (!members.some((member) => String(member.id) === payerId)) {
+    // The signed-in user must always be selectable as the payer, even if the
+    // group payload omitted them.
+    members.push({ id: payerId });
+  }
+
+  state.expenseMembers = members;
+  state.expensePayerId = payerId;
+
+  refs.expenseForm?.reset();
+  resetExpenseErrors();
+  renderExpenseMembers();
+  updateExpensePreview();
+  showDialog(refs.expenseDialog);
+  refs.expenseTitle?.focus();
+}
+
+function closeExpenseDialog() {
+  hideDialog(refs.expenseDialog);
+}
+
+function renderExpenseMembers() {
+  if (!refs.expenseMembers) return;
+
+  const rows = state.expenseMembers.map((member, index) => {
+    const id = String(member.id);
+    const isPayer = id === state.expensePayerId;
+    const isSelf =
+      Boolean(state.currentUserId) && id === String(state.currentUserId);
+    const label = memberDisplayName(member, index, isSelf);
+
+    const row = document.createElement('li');
+    row.className = 'member-option';
+    row.dataset.memberId = id;
+    if (isPayer) row.dataset.locked = 'true';
+
+    const labelElement = document.createElement('label');
+    labelElement.title = isPayer
+      ? `${label} — پرداخت‌کننده (قابل حذف نیست)`
+      : label;
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = id;
+    input.checked = true;
+    input.disabled = isPayer;
+    input.dataset.memberId = id;
+    input.setAttribute(
+      'aria-label',
+      isPayer ? `${label}، پرداخت‌کننده و قابل حذف نیست` : label,
+    );
+    input.addEventListener('change', () => {
+      setExpenseMembersError('');
+      updateExpensePreview();
+    });
+
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar avatar-sm';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = memberInitials(member, index);
+
+    const name = document.createElement('span');
+    name.className = 'member-option-name';
+    name.textContent = label;
+
+    labelElement.append(input, avatar, name);
+
+    if (isPayer) {
+      const badge = document.createElement('span');
+      badge.className = 'member-option-badge';
+      badge.textContent = 'پرداخت‌کننده';
+      labelElement.append(badge);
+    }
+
+    row.append(labelElement);
+    return row;
+  });
+
+  refs.expenseMembers.replaceChildren(...rows);
+}
+
+function getSelectedExpenseMemberIds() {
+  if (!refs.expenseMembers) return [];
+
+  const ids = Array.from(
+    refs.expenseMembers.querySelectorAll('input[type="checkbox"]'),
+  )
+    .filter((input) => input.checked)
+    .map((input) => input.value);
+
+  // Defensive: the lock above should make this impossible, but the payer must
+  // never fall out of the split.
+  if (state.expensePayerId) ids.push(state.expensePayerId);
+
+  return normalizeMemberIds(ids);
+}
+
+function updateExpensePreview() {
+  if (!refs.expensePreview) return;
+
+  const amount = parseRialAmount(refs.expenseAmount?.value);
+  const memberIds = getSelectedExpenseMemberIds();
+  const split = calculateEqualSplit(amount, memberIds);
+
+  if (!split) {
+    const hint = document.createElement('p');
+    hint.className = 'split-preview-empty';
+    hint.textContent = MESSAGES.expensePreviewHint;
+    refs.expensePreview.replaceChildren(hint);
+    return;
+  }
+
+  const shares = split.map((entry) => entry.share);
+  const smallest = Math.min(...shares);
+  const largest = Math.max(...shares);
+  const shareById = new Map(
+    split.map((entry) => [entry.memberId, entry.share]),
+  );
+
+  const summary = document.createElement('p');
+  summary.className = 'split-preview-summary';
+  summary.textContent =
+    smallest === largest
+      ? `هر نفر ${formatExpenseAmount(smallest)}`
+      : `هر نفر از ${formatExpenseAmount(smallest)} تا ${formatExpenseAmount(
+          largest,
+        )}`;
+
+  const note = document.createElement('p');
+  note.className = 'split-preview-note';
+  note.textContent = `${FA_NUMBER.format(split.length)} نفر · جمع ${formatExpenseAmount(
+    amount,
+  )}`;
+
+  const list = document.createElement('ul');
+  list.className = 'split-preview-list';
+
+  state.expenseMembers.forEach((member, index) => {
+    const id = String(member.id);
+    if (!shareById.has(id)) return;
+
+    const item = document.createElement('li');
+    item.className = 'split-preview-item';
+
+    const name = document.createElement('span');
+    name.textContent = memberDisplayName(
+      member,
+      index,
+      Boolean(state.currentUserId) && id === String(state.currentUserId),
+    );
+
+    const share = document.createElement('span');
+    share.textContent = formatExpenseAmount(shareById.get(id));
+
+    item.append(name, share);
+    list.append(item);
+  });
+
+  refs.expensePreview.replaceChildren(summary, note, list);
+}
+
+async function onExpenseSubmit(event) {
+  event.preventDefault();
+  if (refs.expenseSubmit?.disabled) return;
+
+  resetExpenseErrors();
+
+  const title = refs.expenseTitle?.value.trim() ?? '';
+  const description = refs.expenseDescription?.value.trim() ?? '';
+  const amount = parseRialAmount(refs.expenseAmount?.value);
+  const memberIds = getSelectedExpenseMemberIds();
+
+  let firstInvalid = null;
+
+  if (!title) {
+    setFieldError(
+      refs.expenseTitle,
+      refs.expenseTitleError,
+      MESSAGES.expenseTitleRequired,
+    );
+    firstInvalid = refs.expenseTitle;
+  } else if (title.length > MAX_EXPENSE_TITLE_LENGTH) {
+    setFieldError(
+      refs.expenseTitle,
+      refs.expenseTitleError,
+      MESSAGES.expenseTitleTooLong,
+    );
+    firstInvalid = refs.expenseTitle;
+  }
+
+  if (description.length > MAX_EXPENSE_DESCRIPTION_LENGTH) {
+    setFieldError(
+      refs.expenseDescription,
+      refs.expenseDescriptionError,
+      MESSAGES.expenseDescriptionTooLong,
+    );
+    firstInvalid ??= refs.expenseDescription;
+  }
+
+  if (amount === null) {
+    setFieldError(
+      refs.expenseAmount,
+      refs.expenseAmountError,
+      MESSAGES.expenseAmountInvalid,
+    );
+    firstInvalid ??= refs.expenseAmount;
+  }
+
+  if (memberIds.length === 0) {
+    setExpenseMembersError(MESSAGES.expenseMembersRequired);
+    firstInvalid ??= refs.expenseMembers?.querySelector('input');
+  }
+
+  if (firstInvalid) {
+    firstInvalid.focus();
+    return;
+  }
+
+  if (!state.detailId) return;
+
+  setBusy(refs.expenseSubmit, true, 'در حال ثبت…', 'ثبت هزینه');
+
+  try {
+    await createGroupExpense(state.detailId, {
+      title,
+      description: description || undefined,
+      amount,
+      payerId: state.expensePayerId,
+      memberIds,
+    });
+
+    hideDialog(refs.expenseDialog);
+    refs.expenseForm?.reset();
+    showToast(MESSAGES.expenseCreated, 'success');
+
+    // Re-read the authoritative list so the new row, totals, and payer label
+    // all come from the server.
+    loadExpenses(state.detailId);
+  } catch (error) {
+    if (handleUnauthorized(error)) return;
+    setFormError(expenseSubmitErrorMessage(error));
+  } finally {
+    setBusy(refs.expenseSubmit, false, 'در حال ثبت…', 'ثبت هزینه');
+  }
+}
+
+function resetExpenseErrors() {
+  setFieldError(refs.expenseTitle, refs.expenseTitleError, '');
+  setFieldError(refs.expenseDescription, refs.expenseDescriptionError, '');
+  setFieldError(refs.expenseAmount, refs.expenseAmountError, '');
+  setExpenseMembersError('');
+  setFormError('');
+}
+
+function setExpenseMembersError(message) {
+  if (!refs.expenseMembersError) return;
+  refs.expenseMembersError.textContent = message;
+
+  const fieldset = refs.expenseMembers?.closest('fieldset');
+  if (!fieldset) return;
+  if (message) {
+    fieldset.setAttribute('aria-invalid', 'true');
+  } else {
+    fieldset.removeAttribute('aria-invalid');
+  }
+}
+
+function setFormError(message) {
+  if (!refs.expenseFormError) return;
+  refs.expenseFormError.textContent = message;
+}
+
+function expenseSubmitErrorMessage(error) {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return error.message;
+    if (error.status === 400) {
+      return error.message || MESSAGES.expenseAmountInvalid;
+    }
+    if (error.status === 403) return MESSAGES.expenseForbidden;
+    if (error.status === 404) {
+      return `${MESSAGES.groupNotFound}. ${MESSAGES.groupNotFoundHint}`;
+    }
+    if (error.status >= 500) return MESSAGES.serverError;
+  }
+
+  return error instanceof Error && error.message
+    ? error.message
+    : MESSAGES.expenseCreateFailed;
 }
 
 function handleUnauthorized(error) {

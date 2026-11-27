@@ -526,7 +526,8 @@ h1[tabindex="-1"]:focus {
   display: none;
 }
 
-.field input[aria-invalid="true"] {
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
   border-color: var(--danger);
   background: var(--danger-soft);
 }
@@ -567,11 +568,37 @@ h1[tabindex="-1"]:focus {
   background: var(--surface);
 }
 
-/* Phone numbers stay LTR (`dir="ltr"` on the input) but align with the RTL
-   form's reading edge. */
-.field input[type="tel"] {
+/* Phone numbers and amounts stay LTR (`dir="ltr"` on the input) but align
+   with the RTL form's reading edge. */
+.field input[type="tel"],
+.field input.amount-input {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.field textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.field textarea:hover {
+  border-color: var(--brand);
+}
+
+.field textarea:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  background: var(--surface);
 }
 
 .field-hint {
@@ -1087,6 +1114,10 @@ h1[tabindex="-1"]:focus {
   box-shadow: var(--shadow-md);
 }
 
+.modal-wide {
+  width: min(100% - 2rem, 34rem);
+}
+
 .modal::backdrop {
   background: rgb(8 15 30 / 0.6);
   backdrop-filter: blur(3px);
@@ -1130,6 +1161,150 @@ h1[tabindex="-1"]:focus {
 .icon-button:hover {
   border-color: var(--brand);
   color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   Add-expense form: member picker and split preview
+   -------------------------------------------------------------------------- */
+
+.member-picker {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.member-picker legend {
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.member-picker[aria-invalid="true"] .member-option-list {
+  border-color: var(--danger);
+}
+
+.member-option-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+
+.member-option {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.member-option > label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+}
+
+.member-option[data-locked="true"] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.member-option[data-locked="true"] > label {
+  cursor: default;
+}
+
+.member-option input[type="checkbox"] {
+  flex: none;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  accent-color: var(--brand);
+}
+
+.member-option input[type="checkbox"]:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.member-option-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.member-option-badge {
+  margin-inline-start: auto;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.split-preview {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.split-preview-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.split-preview-summary {
+  margin: 0;
+  color: var(--brand);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.split-preview-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.split-preview-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-preview-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.split-preview-item > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.split-preview-item > span:last-child {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Keep the page behind a modal from scrolling where :has is supported. */

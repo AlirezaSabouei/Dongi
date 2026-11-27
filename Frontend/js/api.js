@@ -300,6 +300,30 @@ export function listGroupExpenses(id, options = {}) {
   );
 }
 
+/**
+ * Add an expense to a group.
+ *
+ * `amount` is an integer number of Rials. `payerId` and every entry in
+ * `memberIds` must belong to the group; the payer is also one of the split
+ * members. Only members may add an expense. Resolves with the created expense
+ * on `201 Created`.
+ *
+ * @param {string} id Group id.
+ * @param {object} expense
+ * @param {string} expense.title
+ * @param {string} [expense.description]
+ * @param {number} expense.amount Integer Rials, greater than zero.
+ * @param {string} expense.payerId
+ * @param {string[]} expense.memberIds
+ * @param {object} [options]
+ */
+export function createGroupExpense(id, expense, options = {}) {
+  return authenticatedRequest(
+    `/groups/${encodeURIComponent(id)}/expenses`,
+    { ...options, method: 'POST', body: expense },
+  );
+}
+
 async function parseResponse(response) {
   if (response.status === 204 || response.status === 205) return null;
 
