@@ -2,30 +2,39 @@
  * Dongi service worker — minimal app-shell cache.
  *
  * Strategy:
- *  - install: precache the shell (document, styles, modules, manifest, icons)
- *  - navigation requests: network first, falling back to the cached shell so
- *    every hash route opens offline after the first visit
+ *  - install: precache the pages and shared shell (HTML, styles, modules,
+ *    manifest, icons)
+ *  - navigation requests: network first, falling back to the cached page (or
+ *    the index gate) so every page opens offline after the first visit
  *  - same-origin shell assets: cache first, refreshed in the background
  *  - everything else (API calls, other origins): untouched
  *
  * Bump CACHE_VERSION whenever a cached shell asset changes so clients pick up
- * the new files; `index.html` and app modules are served from this cache.
+ * the new files; pages and app modules are served from this cache.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v6';
 const SHELL_CACHE = `dongi-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `dongi-runtime-${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [
   './',
   './index.html',
+  './login.html',
+  './groups.html',
+  './group.html',
+  './404.html',
   './manifest.webmanifest',
   './css/styles.css',
   './js/config.js',
-  './js/app.js',
-  './js/router.js',
-  './js/views.js',
+  './js/guard.js',
+  './js/shell.js',
+  './js/login.js',
+  './js/groups.js',
+  './js/group.js',
+  './js/not-found.js',
   './js/api.js',
+  './js/auth.js',
   './js/pwa.js',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -93,23 +102,24 @@ self.addEventListener('fetch', (event) => {
 
 async function handleNavigation(request) {
   const cache = await caches.open(SHELL_CACHE);
+  const url = new URL(request.url);
 
   try {
     const response = await fetch(request);
     if (response.ok) {
-      await cache
-        .put(
-          new URL('./index.html', self.registration.scope),
-          response.clone(),
-        )
-        .catch(() => {
-          /* A failed cache refresh must not break the navigation response. */
-        });
+      await cache.put(request, response.clone()).catch(() => {
+        /* A failed cache refresh must not break the navigation response. */
+      });
     }
     return response;
   } catch {
     const cached =
       (await cache.match(request)) ||
+      (url.pathname.endsWith('.html')
+        ? await cache.match(
+            new URL(`.${url.pathname}`, self.registration.scope),
+          )
+        : null) ||
       (await cache.match(new URL('./index.html', self.registration.scope))) ||
       (await cache.match('./'));
     return cached || offlineResponse();

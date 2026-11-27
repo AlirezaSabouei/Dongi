@@ -3,11 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>دنگی — خرج‌های مشترک</title>
-    <meta
-      name="description"
-      content="دنگی خرج‌های مشترک را ساده می‌کند: گروه بسازید، هزینه‌ها را ثبت کنید و با دوستانتان حساب‌ها را تسویه کنید."
-    />
+    <title>صفحه پیدا نشد · دنگی</title>
+    <meta name="description" content="صفحهٔ مورد نظر در دنگی پیدا نشد." />
     <meta name="theme-color" content="#0b1120" />
     <meta name="color-scheme" content="light dark" />
 
@@ -18,7 +15,6 @@
 
     <link rel="stylesheet" href="css/styles.css" />
     <script src="js/config.js"></script>
-    <script type="module" src="js/app.js"></script>
   </head>
 
   <body>
@@ -27,15 +23,15 @@
     <div class="app-shell">
       <header class="app-header">
         <div class="app-header-inner">
-          <a class="brand" href="#/groups" aria-label="خانهٔ دنگی">
+          <a class="brand" href="index.html" aria-label="خانهٔ دنگی">
             <img class="brand-mark" src="icons/icon.svg" alt="" width="34" height="34" />
             <span class="brand-name">دنگی</span>
           </a>
 
           <div class="header-tools">
             <nav class="app-nav" aria-label="ناوبری اصلی">
-              <a href="#/login" data-nav="login">ورود</a>
-              <a href="#/groups" data-nav="groups">گروه‌ها</a>
+              <a href="login.html" data-nav="login">ورود</a>
+              <a href="groups.html" data-nav="groups">گروه‌ها</a>
             </nav>
             <span
               id="connection-status"
@@ -51,13 +47,26 @@
       </header>
 
       <main id="app" class="app-main" tabindex="-1">
-        <p class="loading">در حال بارگذاری دنگی&hellip;</p>
+        <section class="view" aria-labelledby="not-found-title">
+          <div class="card error-card">
+            <p class="eyebrow">۴۰۴</p>
+            <h1 id="not-found-title">صفحه پیدا نشد</h1>
+            <p class="lede">
+              این نشانی در دنگی وجود ندارد. می‌توانید به فهرست گروه‌ها یا صفحهٔ ورود
+              برگردید.
+            </p>
+            <div class="button-row">
+              <a class="button button-primary" href="groups.html">رفتن به گروه‌ها</a>
+              <a class="button button-secondary" href="login.html">ورود</a>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer class="app-footer">
-        <p>دنگی &middot; اسکلت فرانت‌اند (اپیک ۰)</p>
+        <p>دنگی &middot; خرج‌های مشترک</p>
         <p class="app-footer-meta">
-          API <code id="api-base-label" dir="ltr">http://localhost:5080</code>
+          API <code id="api-base-label" dir="ltr">http://192.168.1.8:8082</code>
         </p>
       </footer>
     </div>
@@ -75,5 +84,7 @@
     <noscript>
       <p class="noscript">دنگی برای کار کردن به فعال بودن جاوااسکریپت نیاز دارد.</p>
     </noscript>
+
+    <script type="module" src="js/not-found.js"></script>
   </body>
 </html>

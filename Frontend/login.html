@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ورود · دنگی</title>
+    <meta
+      name="description"
+      content="ورود به دنگی با شمارهٔ موبایل و کد یک‌بارمصرف."
+    />
+    <meta name="theme-color" content="#0b1120" />
+    <meta name="color-scheme" content="light dark" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180" />
+
+    <link rel="stylesheet" href="css/styles.css" />
+    <script src="js/guard.js" data-auth="guest"></script>
+    <script src="js/config.js"></script>
+  </head>
+
+  <body data-auth="guest">
+    <a class="skip-link" href="#app">پرش به محتوا</a>
+
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="app-header-inner">
+          <a class="brand" href="login.html" aria-label="خانهٔ دنگی">
+            <img class="brand-mark" src="icons/icon.svg" alt="" width="34" height="34" />
+            <span class="brand-name">دنگی</span>
+          </a>
+
+          <div class="header-tools">
+            <nav class="app-nav" aria-label="ناوبری اصلی">
+              <a href="login.html" data-nav="login" aria-current="page">ورود</a>
+              <a href="groups.html" data-nav="groups">گروه‌ها</a>
+            </nav>
+            <span
+              id="connection-status"
+              class="status-pill"
+              data-state="online"
+              role="status"
+              aria-live="polite"
+            >
+              آنلاین
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main id="app" class="app-main" tabindex="-1">
+        <section class="view view-login" aria-labelledby="login-title">
+          <div class="hero-copy">
+            <p class="eyebrow">خرج‌های مشترک، بدون جدول اکسل</p>
+            <h1 id="login-title">به دنگی خوش آمدید</h1>
+            <p class="lede">
+              اجاره، خرید خانه و سفرها را با کسانی که در آن‌ها شریک هستید تقسیم کنید.
+              برای ورود فقط به شمارهٔ موبایل و یک کد یک‌بارمصرف نیاز دارید.
+            </p>
+          </div>
+
+          <div class="panel-grid login-grid">
+            <div class="card auth-card">
+              <ol class="login-steps" aria-label="مراحل ورود">
+                <li class="login-step" data-step-indicator="phone" aria-current="step">
+                  <span class="step-number" aria-hidden="true">۱</span>
+                  <span>شمارهٔ موبایل</span>
+                </li>
+                <li class="login-step" data-step-indicator="code">
+                  <span class="step-number" aria-hidden="true">۲</span>
+                  <span>کد تأیید</span>
+                </li>
+              </ol>
+
+              <form class="auth-form" data-phone-form novalidate>
+                <h2>ورود با شمارهٔ موبایل</h2>
+                <label class="field" for="login-phone">
+                  <span>شمارهٔ موبایل</span>
+                  <input
+                    id="login-phone"
+                    name="phone"
+                    type="tel"
+                    dir="ltr"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    placeholder="+98 912 123 4567"
+                    aria-describedby="phone-hint phone-error"
+                    required
+                  />
+                </label>
+                <p id="phone-hint" class="field-hint">
+                  شماره را با کد کشور وارد کنید؛ نمونه:
+                  <span class="mono">+989121234567</span>.
+                </p>
+                <p id="phone-error" class="field-error" data-phone-error role="alert"></p>
+                <button type="submit" class="button button-primary" data-phone-submit>
+                  ارسال کد
+                </button>
+                <p class="form-status" data-phone-status role="status" aria-live="polite"></p>
+              </form>
+
+              <form class="auth-form" data-code-form novalidate hidden>
+                <h2>کد تأیید را وارد کنید</h2>
+                <p class="code-intro">
+                  کد ۶ رقمی ارسال‌شده به
+                  <bdi class="phone-display" dir="ltr" data-phone-display></bdi>
+                  را وارد کنید.
+                  <button type="button" class="link-button" data-change-phone>
+                    تغییر شماره
+                  </button>
+                </p>
+                <label class="field" for="login-code">
+                  <span>کد ۶ رقمی</span>
+                  <input
+                    id="login-code"
+                    name="code"
+                    class="code-input"
+                    type="text"
+                    dir="ltr"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    placeholder="۱۲۳۴۵۶"
+                    aria-describedby="code-error"
+                    required
+                  />
+                </label>
+                <p id="code-error" class="field-error" data-code-error role="alert"></p>
+                <div class="button-row">
+                  <button type="submit" class="button button-primary" data-code-submit>
+                    تأیید و ورود
+                  </button>
+                  <button type="button" class="button button-secondary" data-resend disabled>
+                    ارسال دوبارهٔ کد
+                  </button>
+                </div>
+                <p class="form-status" data-code-status role="status" aria-live="polite"></p>
+              </form>
+            </div>
+
+            <aside class="card preview-card" aria-labelledby="how-title">
+              <h2 id="how-title">چطور کار می‌کند</h2>
+              <ol class="route-list">
+                <li>شمارهٔ موبایل را با کد کشور وارد می‌کنید.</li>
+                <li>یک کد ۶ رقمی پیامک می‌شود؛ تا ۶۰ ثانیه می‌توانید دوباره درخواست کنید.</li>
+                <li>بعد از تأیید کد، وارد فهرست گروه‌هایتان می‌شوید.</li>
+              </ol>
+              <p class="login-note muted">
+                رمز عبوری لازم نیست. توکن ورود فقط در همین مرورگر ذخیره می‌شود و با
+                «خروج» پاک می‌شود.
+              </p>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <p>دنگی &middot; خرج‌های مشترک</p>
+        <p class="app-footer-meta">
+          API <code id="api-base-label" dir="ltr">http://192.168.1.8:8082</code>
+        </p>
+      </footer>
+    </div>
+
+    <div id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
+      <p class="update-toast-text">نسخهٔ تازه‌ای از دنگی آماده است.</p>
+      <div class="update-toast-actions">
+        <button type="button" class="button button-small" data-update-reload>بارگذاری مجدد</button>
+        <button type="button" class="button button-small button-ghost" data-update-dismiss>
+          بعداً
+        </button>
+      </div>
+    </div>
+
+    <noscript>
+      <p class="noscript">دنگی برای کار کردن به فعال بودن جاوااسکریپت نیاز دارد.</p>
+    </noscript>
+
+    <script type="module" src="js/login.js"></script>
+  </body>
+</html>

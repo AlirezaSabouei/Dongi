@@ -1,92 +1,35 @@
-# Dongi — Frontend PWA scaffold
+# Dongi
 
-Vanilla HTML/CSS/JS frontend for Dongi, built as an installable progressive web
-app. No framework, no build step: the files in this folder are served as-is.
+Dongi helps friends track shared expenses: create a group, record costs, and
+settle up. This repository contains the web frontend and the ASP.NET Core API.
 
-This is **Epic 0** from
-[issue #2](https://github.com/AlirezaSabouei/Dongi/issues/2). It provides the app
-shell, hash router, API wrapper, placeholder views, and offline support. Phone
-sign-in and real group data arrive in later milestones. The ASP.NET Core API
-scaffold from issue #1 lives in [`Backend/`](Backend/README.md).
+## Repository layout
 
-## Language and direction
-
-The interface is Persian (fa) and right-to-left:
-
-- `index.html` sets `<html lang="fa" dir="rtl">` and Persian title/description.
-- `manifest.webmanifest` declares `"lang": "fa"` and `"dir": "rtl"`; shortcut
-  names are Persian too.
-- Layout CSS mirrors through logical properties (`inset-inline-start`,
-  `margin-inline-start`), and Persian-capable fonts (Vazirmatn, Segoe UI,
-  Tahoma) lead the type stack. Letter-spacing is disabled so Persian letters
-  keep their joins.
-- User-facing strings live in `js/views.js`, `js/app.js`, `js/router.js`,
-  `js/api.js`, and the offline fallback in `service-worker.js`.
-- Numbers and times are formatted with the `fa-IR` locale, so they render with
-  Persian digits.
-
-## What's included
-
-| Piece | Purpose |
+| Folder | Contents |
 | --- | --- |
-| `index.html` | App shell, links the manifest and icons, loads `js/app.js` |
-| `css/styles.css` | Responsive light/dark theme, no framework |
-| `js/app.js` | Entry point: routes, nav state, connection badge, skip link |
-| `js/router.js` | Hash router with `:param` support and deep-link rendering |
-| `js/views.js` | Placeholder login, group list, group detail, and 404 views |
-| `js/api.js` | `fetch` wrapper with configurable base URL, JSON handling, timeouts, `ApiError` |
-| `js/config.js` | Runtime API base URL and timeout |
-| `js/pwa.js` | Service-worker registration and "new version" toast |
-| `manifest.webmanifest` | Installability metadata, icons, shortcuts |
-| `service-worker.js` | App-shell precache, offline navigation fallback |
-| `icons/` | 192/512 PNG, maskable, Apple touch, favicon, SVG source |
+| [`Frontend/`](Frontend/README.md) | Vanilla HTML/CSS/JS progressive web app. No framework, no build step. |
+| [`Backend/`](Backend/README.md) | ASP.NET Core minimal API (auth, health, MongoDB). |
+| [`Backend.Tests/`](Backend.Tests/) | xUnit tests for the API. |
+
+`Dongi.slnx` groups the two .NET projects; the frontend is plain static files
+and is not part of the solution.
 
 ## Run it
 
-Requires Node.js (for `npx serve`) or any static file server. The app must be
-served over **HTTPS or localhost** for service workers and installability.
-
 ```bash
-# from the repository root
-npx serve . -l 5173
-```
-
-Open <http://localhost:5173>. Port `5173` is the backend's default allowed CORS
-origin. Any port works for the UI itself; if you use a different one, add that
-origin to the API's `Cors:AllowedOrigins` before using the "Check API" button.
-
-Equivalent alternatives:
-
-```bash
-# Python 3
-python -m http.server 5173
-
-# Any other static server that serves the folder root at /
-```
-
-Do **not** open `index.html` via `file://` — modules and service workers require
-an HTTP origin.
-
-### API (optional)
-
-The health check button on `#/groups` calls the backend scaffold from issue #1:
-
-```bash
+# API — http://localhost:5080
 cd Backend
-dotnet run          # http://localhost:5080/health
+dotnet run
+
+# Frontend — http://localhost:5173 (serve the Frontend folder as the root)
+npx serve Frontend -l 5173
 ```
 
-`js/config.js` points at `http://localhost:5080` by default. Edit it to change
-the API base URL or timeout, or override `window.DONGI_CONFIG` before
-`js/config.js` loads:
-
-```js
-window.DONGI_CONFIG = {
-  apiBaseUrl: 'https://api.dongi.example',
-  requestTimeoutMs: 10000,
-};
-```
-
+The frontend needs Node.js (for `npx serve`), Python 3 (`python -m http.server
+5173 --directory Frontend`), or any static file server. See
+[`Frontend/README.md`](Frontend/README.md) for pages, auth, PWA behaviour, and
+verification steps, and [`Backend/README.md`](Backend/README.md) for
+configuration and endpoints.
 Only the health endpoint is wired up in this frontend scaffold. The backend now
 also implements auth and group endpoints (see
 [`Backend/README.md`](Backend/README.md)), but the views still use placeholder
