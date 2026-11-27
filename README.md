@@ -43,6 +43,10 @@ API is configured at <http://192.168.1.8:8082> (Swagger:
   `groups.html#/groups/{id}`, and `groups.html#/join/{code}`. The backend's
   `/#/join/{inviteCode}` links are translated to the last route by the
   `index.html` gate.
+- Group detail with member avatars/initials, an expense list fed by
+  `GET /groups/{id}/expenses` (title, amount, payer, date, empty state), and a
+  **دعوت دوستان** button that shares the invite URL or copies it with a toast.
+  Friendly 403/404 states keep non-members and unknown groups on a working page.
 - Persian RTL UI, light/dark themes, installable PWA shell, and an offline
   fallback for visited pages.
 
@@ -95,6 +99,7 @@ Bump `CACHE_VERSION` in `service-worker.js` whenever a precached file changes.
     │   ├── shell.js
     │   ├── login.js
     │   ├── groups.js
+    │   ├── expenses.js
     │   ├── group.js
     │   ├── not-found.js
     │   ├── api.js

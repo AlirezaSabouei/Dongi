@@ -81,6 +81,40 @@ export function isAuthenticated() {
   return Boolean(getAuthToken());
 }
 
+/**
+ * Read the signed-in user's id from the JWT `sub` claim.
+ *
+ * This is only used for presentation (marking "you" in a member list or as an
+ * expense payer); the API still authorizes every request. Returns `null` when
+ * there is no token or it cannot be decoded.
+ */
+export function getAuthUserId() {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const payload = decodeJwtPayload(token);
+  const subject = payload?.sub;
+  return typeof subject === 'string' && subject.trim() ? subject.trim() : null;
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 

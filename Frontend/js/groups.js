@@ -3,7 +3,7 @@
  *
  * Routes are hash based so the app stays a static multi-page PWA:
  *   #/groups          group list
- *   #/groups/{id}     group detail
+ *   #/groups/{id}     group detail (members, expenses, invite)
  *   #/join/{code}     group list with the join dialog pre-filled
  *
  * The page talks to the authenticated `/groups` API. A `401` on any call clears
@@ -15,15 +15,31 @@ import {
   ApiError,
   createGroup,
   getGroup,
+  getGroupInvite,
   joinGroup,
+  listGroupExpenses,
   listGroups,
 } from './api.js';
-import { clearAuthToken } from './auth.js';
+import { clearAuthToken, getAuthUserId } from './auth.js';
+import {
+  formatExpenseAmount,
+  renderExpenseList,
+  sumExpenseAmounts,
+  toExpenseArray,
+} from './expenses.js';
 import { initShell } from './shell.js';
 
 const FA_NUMBER = new Intl.NumberFormat('fa-IR');
 const MAX_GROUP_NAME_LENGTH = 100;
 const LIST_HASH = '#/groups';
+const TOAST_DURATION_MS = 5000;
+
+/**
+ * The expenses endpoint is part of the backend group API, but an older
+ * deployment may not expose it yet. A missing endpoint (404/405/501) should
+ * degrade to the empty state instead of breaking the group page.
+ */
+const EXPENSES_UNAVAILABLE_STATUSES = new Set([404, 405, 501]);
 
 const MESSAGES = {
   nameRequired: 'نام گروه را وارد کنید.',
@@ -34,8 +50,21 @@ const MESSAGES = {
   createFailed: 'ساخت گروه ممکن نشد. دوباره تلاش کنید.',
   joinFailed: 'پیوستن به گروه ممکن نشد. دوباره تلاش کنید.',
   invalidInvite: 'کد دعوت معتبر نیست یا منقضی شده است.',
-  groupNotFound: 'این گروه وجود ندارد یا شما عضو آن نیستید.',
+  notAMember: 'شما عضو این گروه نیستید',
+  notAMemberHint:
+    'برای دیدن اعضا و هزینه‌های این گروه باید عضو آن باشید. از میزبان بخواهید لینک دعوت را برایتان بفرستد.',
+  groupNotFound: 'گروه پیدا نشد',
+  groupNotFoundHint: 'این گروه وجود ندارد یا حذف شده است.',
+  detailLoadFailed: 'گروه بارگذاری نشد',
   serverError: 'سرور موقتاً در دسترس نیست. کمی بعد دوباره تلاش کنید.',
+  expensesLoadFailed: 'فهرست هزینه‌ها بارگذاری نشد. دوباره تلاش کنید.',
+  inviteFailed: 'ساخت لینک دعوت ممکن نشد. دوباره تلاش کنید.',
+  inviteUnavailable: 'لینک دعوت در پاسخ سرور پیدا نشد.',
+  inviteShared: 'دعوت‌نامه آمادهٔ ارسال شد.',
+  inviteCopied: 'لینک دعوت کپی شد؛ آن را برای دوستانتان بفرستید.',
+  inviteCopyFailed: 'کپی لینک دعوت ممکن نشد. اتصال مرورگر را بررسی کنید.',
+  inviteNotMember: 'شما عضو این گروه نیستید و نمی‌توانید دعوت بفرستید.',
+  inviteGroupGone: 'این گروه دیگر وجود ندارد.',
 };
 
 const refs = {};
@@ -45,10 +74,16 @@ const state = {
   groupsLoading: false,
   listRequestId: 0,
   detailId: '',
+  detailGroup: null,
+  detailMembers: [],
   detailRequestId: 0,
+  expensesRequestId: 0,
+  currentUserId: null,
   joinFromRoute: false,
   redirecting: false,
 };
+
+let toastTimer = 0;
 
 initShell();
 initGroups();
@@ -80,15 +115,30 @@ function initGroups() {
   refs.detailError = document.querySelector('[data-detail-error]');
   refs.detailErrorTitle = document.querySelector('[data-detail-error-title]');
   refs.detailErrorMessage = document.querySelector('[data-detail-error-message]');
+  refs.detailErrorBack = document.querySelector('[data-detail-error-back]');
   refs.detailContent = document.querySelector('[data-detail-content]');
   refs.detailRetry = document.querySelector('[data-detail-retry]');
   refs.detailName = document.querySelector('[data-detail-name]');
   refs.detailMeta = document.querySelector('[data-detail-meta]');
   refs.detailInitials = document.querySelector('[data-detail-initials]');
   refs.detailMembers = document.querySelector('[data-detail-members]');
-  refs.detailCreated = document.querySelector('[data-detail-created]');
-  refs.detailId = document.querySelector('[data-detail-id]');
+  refs.detailMemberList = document.querySelector('[data-detail-member-list]');
   refs.detailMembersNote = document.querySelector('[data-detail-members-note]');
+  refs.invite = document.querySelector('[data-invite]');
+
+  refs.expenseList = document.querySelector('[data-expense-list]');
+  refs.expensesLoading = document.querySelector('[data-expenses-loading]');
+  refs.expensesError = document.querySelector('[data-expenses-error]');
+  refs.expensesErrorMessage = document.querySelector(
+    '[data-expenses-error-message]',
+  );
+  refs.expensesEmpty = document.querySelector('[data-expenses-empty]');
+  refs.expensesCount = document.querySelector('[data-expenses-count]');
+  refs.expensesRetry = document.querySelector('[data-expenses-retry]');
+  refs.expenseCount = document.querySelector('[data-detail-expense-count]');
+  refs.expenseTotal = document.querySelector('[data-detail-expense-total]');
+
+  refs.toast = document.querySelector('[data-toast]');
 
   if (!refs.listView || !refs.detailView || !refs.groupList) return;
 
@@ -117,6 +167,10 @@ function bindEvents() {
   refs.detailRetry?.addEventListener('click', () => {
     if (state.detailId) loadDetail(state.detailId);
   });
+  refs.expensesRetry?.addEventListener('click', () => {
+    if (state.detailId) loadExpenses(state.detailId);
+  });
+  refs.invite?.addEventListener('click', onInviteClick);
 
   refs.createForm?.addEventListener('submit', onCreateSubmit);
   refs.joinForm?.addEventListener('submit', onJoinSubmit);
@@ -211,6 +265,12 @@ function navigateTo(hash) {
 }
 
 function showListView() {
+  if (state.detailId) {
+    state.detailId = '';
+    state.detailRequestId += 1;
+    state.expensesRequestId += 1;
+  }
+
   refs.listView.hidden = false;
   refs.detailView.hidden = true;
   document.title = 'گروه‌ها · دنگی';
@@ -338,14 +398,21 @@ function setListState(mode) {
 function loadDetail(id) {
   const requestId = ++state.detailRequestId;
   state.detailId = id;
+  state.detailGroup = null;
+  state.detailMembers = [];
+  state.currentUserId = getAuthUserId();
+  state.expensesRequestId += 1;
 
   refs.detailLoading.hidden = false;
   refs.detailError.hidden = true;
   refs.detailContent.hidden = true;
 
+  resetExpenseSummary();
+  setExpensesState('loading');
+
   getGroup(id)
     .then((group) => {
-      if (requestId !== state.detailRequestId) return;
+      if (requestId !== state.detailRequestId) return false;
       if (!group || !group.id) {
         throw new ApiError(MESSAGES.groupNotFound, { status: 404 });
       }
@@ -354,6 +421,11 @@ function loadDetail(id) {
       refs.detailLoading.hidden = true;
       refs.detailError.hidden = true;
       refs.detailContent.hidden = false;
+      return true;
+    })
+    .then((shouldLoadExpenses) => {
+      if (!shouldLoadExpenses || requestId !== state.detailRequestId) return;
+      loadExpenses(id);
     })
     .catch((error) => {
       if (requestId !== state.detailRequestId) return;
@@ -368,41 +440,387 @@ function loadDetail(id) {
 
 function renderDetail(group) {
   const name = group.name || 'گروه بدون نام';
-  const memberCount = getMemberCount(group);
+  const members = getMembers(group);
+  const memberCount = members.length;
+  const createdAt = formatDate(group.createdAt);
+
+  state.detailGroup = group;
+  state.detailMembers = members;
 
   refs.detailName.textContent = name;
   refs.detailInitials.textContent = initialsFor(name) || 'گ';
-  refs.detailMeta.textContent = memberLabel(memberCount);
+  refs.detailMeta.textContent = createdAt
+    ? `${memberLabel(memberCount)} · ساخته‌شده در ${createdAt}`
+    : memberLabel(memberCount);
   refs.detailMembers.textContent = FA_NUMBER.format(memberCount);
-  refs.detailCreated.textContent = formatDate(group.createdAt);
-  refs.detailId.textContent = group.id;
+
+  renderMemberList(members, group.ownerId, state.currentUserId);
+
+  refs.detailMembersNote.hidden = memberCount > 1;
   refs.detailMembersNote.textContent =
-    memberCount <= 1
-      ? 'شما تنها عضو این گروه هستید. برای دعوت دوستان از کد دعوت گروه استفاده کنید.'
-      : `${FA_NUMBER.format(memberCount)} نفر در این گروه خرج‌ها را شریک می‌شوند.`;
+    memberCount === 0
+      ? 'هنوز عضوی در این گروه نیست.'
+      : 'شما تنها عضو این گروه هستید. برای دعوت دوستان از دکمهٔ «دعوت دوستان» استفاده کنید.';
+
   document.title = `${name} · دنگی`;
+}
+
+function getMembers(group) {
+  const source =
+    Array.isArray(group?.members) && group.members.length > 0
+      ? group.members
+      : Array.isArray(group?.memberIds)
+        ? group.memberIds
+        : [];
+
+  const members = [];
+  const seen = new Set();
+
+  for (const entry of source) {
+    const rawId =
+      typeof entry === 'string' ? entry : entry?.id ?? entry?.userId;
+    const id = typeof rawId === 'string' ? rawId.trim() : String(rawId ?? '').trim();
+    if (!id || seen.has(id)) continue;
+
+    seen.add(id);
+    members.push(
+      typeof entry === 'object' && entry !== null
+        ? { ...entry, id }
+        : { id },
+    );
+  }
+
+  return members;
+}
+
+function renderMemberList(members, ownerId, currentUserId) {
+  if (!refs.detailMemberList) return;
+
+  const owner = String(ownerId ?? '');
+
+  refs.detailMemberList.replaceChildren(
+    ...members.map((member, index) => {
+      const id = String(member.id);
+      const isSelf = Boolean(currentUserId) && id === String(currentUserId);
+      const isOwner = Boolean(owner) && id === owner;
+      const label = memberDisplayName(member, index, isSelf);
+      const item = document.createElement('li');
+      item.className = 'member-chip';
+      item.dataset.memberId = id;
+      if (isSelf) item.dataset.self = 'true';
+      if (isOwner) item.dataset.owner = 'true';
+
+      const avatar = document.createElement('span');
+      avatar.className = 'avatar avatar-sm';
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.textContent = memberInitials(member, index);
+
+      const name = document.createElement('span');
+      name.className = 'member-name';
+      name.textContent = label;
+
+      item.append(avatar, name);
+
+      if (isOwner) {
+        const badge = document.createElement('span');
+        badge.className = 'member-badge';
+        badge.textContent = 'سازنده';
+        item.append(badge);
+      }
+
+      item.title = label;
+      item.setAttribute('aria-label', isOwner ? `${label}، سازندهٔ گروه` : label);
+      return item;
+    }),
+  );
+}
+
+function memberDisplayName(member, index, isSelf) {
+  const name =
+    typeof member?.name === 'string' && member.name.trim()
+      ? member.name.trim()
+      : typeof member?.phone === 'string' && member.phone.trim()
+        ? member.phone.trim()
+        : '';
+
+  if (name) return isSelf ? `${name} (شما)` : name;
+  return isSelf ? 'شما' : `عضو ${FA_NUMBER.format(index + 1)}`;
+}
+
+function memberInitials(member, index) {
+  const name =
+    typeof member?.name === 'string' && member.name.trim()
+      ? member.name.trim()
+      : '';
+
+  return name ? initialsFor(name) : FA_NUMBER.format(index + 1);
+}
+
+function loadExpenses(groupId) {
+  if (!groupId || groupId !== state.detailId) return;
+
+  const requestId = ++state.expensesRequestId;
+  setExpensesState('loading');
+  resetExpenseSummary();
+
+  listGroupExpenses(groupId)
+    .then((data) => {
+      if (requestId !== state.expensesRequestId) return;
+      if (groupId !== state.detailId) return;
+
+      const expenses = toExpenseArray(data);
+      renderExpenses(expenses);
+      setExpensesState(expenses.length > 0 ? 'list' : 'empty');
+    })
+    .catch((error) => {
+      if (requestId !== state.expensesRequestId) return;
+      if (handleUnauthorized(error)) return;
+
+      if (isExpensesUnavailable(error)) {
+        renderExpenses([]);
+        setExpensesState('empty');
+        return;
+      }
+
+      setExpensesState('error');
+      if (refs.expensesErrorMessage) {
+        refs.expensesErrorMessage.textContent = expensesErrorMessage(error);
+      }
+    });
+}
+
+function renderExpenses(expenses) {
+  const items = toExpenseArray(expenses);
+
+  renderExpenseList(refs.expenseList, items, {
+    payerLabel: (expense) => payerLabelFor(expense?.payerId),
+  });
+
+  updateExpenseSummary(items);
+}
+
+function payerLabelFor(payerId) {
+  const id = typeof payerId === 'string' ? payerId.trim() : '';
+  if (!id) return '';
+
+  if (state.currentUserId && id === String(state.currentUserId)) return 'شما';
+
+  const index = state.detailMembers.findIndex(
+    (member) => String(member.id) === id,
+  );
+
+  if (index >= 0) {
+    const member = state.detailMembers[index];
+    const name =
+      typeof member.name === 'string' && member.name.trim()
+        ? member.name.trim()
+        : typeof member.phone === 'string' && member.phone.trim()
+          ? member.phone.trim()
+          : '';
+    if (name) return name;
+    return `عضو ${FA_NUMBER.format(index + 1)}`;
+  }
+
+  return id.length <= 6 ? id.toUpperCase() : id.slice(-6).toUpperCase();
+}
+
+function setExpensesState(mode) {
+  refs.expensesLoading.hidden = mode !== 'loading';
+  refs.expensesError.hidden = mode !== 'error';
+  refs.expensesEmpty.hidden = mode !== 'empty';
+  refs.expenseList.hidden = mode !== 'list';
+}
+
+function resetExpenseSummary() {
+  refs.expenseCount.textContent = '—';
+  refs.expenseTotal.textContent = '—';
+  refs.expensesCount.textContent = '';
+}
+
+function updateExpenseSummary(expenses) {
+  const items = toExpenseArray(expenses);
+  const total = sumExpenseAmounts(items);
+
+  refs.expenseCount.textContent = FA_NUMBER.format(items.length);
+  refs.expenseTotal.textContent = formatExpenseAmount(total ?? 0);
+  refs.expensesCount.textContent =
+    items.length > 0 ? `${FA_NUMBER.format(items.length)} مورد` : '';
 }
 
 function renderDetailError(error) {
   const status = error instanceof ApiError ? error.status : 0;
 
-  if (status === 404 || status === 403) {
-    refs.detailErrorTitle.textContent = 'گروه پیدا نشد';
-    refs.detailErrorMessage.textContent = MESSAGES.groupNotFound;
+  refs.detailRetry.hidden = false;
+  refs.detailErrorBack.textContent = 'بازگشت به گروه‌ها';
+  document.title = 'گروه · دنگی';
+
+  if (status === 403) {
+    refs.detailErrorTitle.textContent = MESSAGES.notAMember;
+    refs.detailErrorMessage.textContent = MESSAGES.notAMemberHint;
+    refs.detailRetry.hidden = true;
     return;
   }
 
+  if (status === 404) {
+    refs.detailErrorTitle.textContent = MESSAGES.groupNotFound;
+    refs.detailErrorMessage.textContent = MESSAGES.groupNotFoundHint;
+    refs.detailRetry.hidden = true;
+    return;
+  }
+
+  refs.detailErrorTitle.textContent = MESSAGES.detailLoadFailed;
+
   if (status >= 500) {
-    refs.detailErrorTitle.textContent = 'گروه بارگذاری نشد';
     refs.detailErrorMessage.textContent = MESSAGES.serverError;
     return;
   }
 
-  refs.detailErrorTitle.textContent = 'گروه بارگذاری نشد';
   refs.detailErrorMessage.textContent =
     error instanceof Error && error.message
       ? error.message
       : MESSAGES.loadFailed;
+}
+
+async function onInviteClick() {
+  if (!state.detailId || refs.invite?.disabled) return;
+
+  setBusy(refs.invite, true, 'در حال آماده‌سازی…', 'دعوت دوستان');
+
+  try {
+    const invite = await getGroupInvite(state.detailId);
+    const url = resolveInviteUrl(invite);
+
+    if (!url) {
+      showToast(MESSAGES.inviteUnavailable, 'error');
+      return;
+    }
+
+    await shareOrCopyInvite(url, state.detailGroup?.name || 'گروه');
+  } catch (error) {
+    if (handleUnauthorized(error)) return;
+    showToast(inviteErrorMessage(error), 'error');
+  } finally {
+    setBusy(refs.invite, false, 'در حال آماده‌سازی…', 'دعوت دوستان');
+  }
+}
+
+function resolveInviteUrl(invite) {
+  const rawUrl =
+    typeof invite?.joinUrl === 'string' ? invite.joinUrl.trim() : '';
+  if (rawUrl) {
+    try {
+      return new URL(rawUrl, window.location.href).href;
+    } catch {
+      return rawUrl;
+    }
+  }
+
+  const inviteCode =
+    typeof invite?.inviteCode === 'string' ? invite.inviteCode.trim() : '';
+  if (!inviteCode) return '';
+
+  return new URL(
+    `groups.html#/join/${encodeURIComponent(inviteCode)}`,
+    window.location.href,
+  ).href;
+}
+
+async function shareOrCopyInvite(url, groupName) {
+  const shareData = {
+    title: `${groupName} · دنگی`,
+    text: `به گروه «${groupName}» در دنگی بپیوندید.`,
+    url,
+  };
+
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share(shareData);
+      showToast(MESSAGES.inviteShared, 'success');
+      return;
+    } catch (error) {
+      // Closing the share sheet is not an error; fall through for real
+      // failures so the link can still be copied.
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+
+  try {
+    await copyText(url);
+    showToast(MESSAGES.inviteCopied, 'success');
+  } catch {
+    showToast(`${MESSAGES.inviteCopyFailed} ${url}`, 'error');
+  }
+}
+
+async function copyText(text) {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.clipboard &&
+    typeof navigator.clipboard.writeText === 'function'
+  ) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      /* Fall back to the selection-based copy path below. */
+    }
+  }
+
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.setAttribute('aria-hidden', 'true');
+  area.style.position = 'fixed';
+  area.style.top = '0';
+  area.style.opacity = '0';
+  document.body.append(area);
+  area.select();
+  area.setSelectionRange(0, text.length);
+
+  const copied =
+    typeof document.execCommand === 'function' && document.execCommand('copy');
+  area.remove();
+
+  if (!copied) throw new Error('Clipboard is not available.');
+}
+
+function inviteErrorMessage(error) {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return error.message;
+    if (error.status === 403) return MESSAGES.inviteNotMember;
+    if (error.status === 404) return MESSAGES.inviteGroupGone;
+    if (error.status >= 500) return MESSAGES.serverError;
+  }
+
+  return MESSAGES.inviteFailed;
+}
+
+function expensesErrorMessage(error) {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return error.message;
+    if (error.status >= 500) return MESSAGES.serverError;
+  }
+
+  return MESSAGES.expensesLoadFailed;
+}
+
+function isExpensesUnavailable(error) {
+  return (
+    error instanceof ApiError && EXPENSES_UNAVAILABLE_STATUSES.has(error.status)
+  );
+}
+
+function showToast(message, tone = 'info') {
+  if (!refs.toast) return;
+
+  refs.toast.textContent = message;
+  refs.toast.dataset.tone = tone;
+  refs.toast.hidden = false;
+
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    refs.toast.hidden = true;
+  }, TOAST_DURATION_MS);
 }
 
 function openCreateDialog() {
@@ -643,6 +1061,7 @@ function setGroupsStatus(message, status = '') {
 
 function getMemberCount(group) {
   if (Array.isArray(group?.memberIds)) return group.memberIds.length;
+  if (Array.isArray(group?.members)) return group.members.length;
 
   const count = Number(group?.memberCount ?? group?.membersCount);
   return Number.isFinite(count) && count >= 0 ? count : 0;

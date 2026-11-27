@@ -13,7 +13,7 @@
  * the new files; pages and app modules are served from this cache.
  */
 
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const SHELL_CACHE = `dongi-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `dongi-runtime-${CACHE_VERSION}`;
 
@@ -31,6 +31,7 @@ const SHELL_ASSETS = [
   './js/shell.js',
   './js/login.js',
   './js/groups.js',
+  './js/expenses.js',
   './js/group.js',
   './js/not-found.js',
   './js/api.js',
