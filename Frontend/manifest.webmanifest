@@ -43,7 +43,7 @@
       "name": "گروه‌ها",
       "short_name": "گروه‌ها",
       "description": "گروه‌های خرج مشترک خود را باز کنید",
-      "url": "./groups.html",
+      "url": "./groups.html#/groups",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {

@@ -28,7 +28,7 @@
   }
 
   if (mode === 'required' && !token) {
-    const next = `${window.location.pathname.split('/').pop()}${window.location.search}`;
+    const next = `${window.location.pathname.split('/').pop()}${window.location.search}${window.location.hash}`;
     window.location.replace(`login.html?next=${encodeURIComponent(next)}`);
     return;
   }
@@ -55,20 +55,29 @@
       if (url.origin !== window.location.origin) return '';
       const file = url.pathname.split('/').pop();
       if (file !== 'groups.html' && file !== 'group.html') return '';
-      return `${file}${url.search}`;
+
+      if (url.hash && !/^#\/(groups|join)(\/|$)/.test(url.hash)) return '';
+      return `${file}${url.search}${url.hash}`;
     } catch {
       return '';
     }
   }
 
-  /** Keep old #/groups, #/groups/:id, and #/login links working. */
+  /**
+   * Translate the original hash-route links to the multi-page app. Groups and
+   * join links now live inside groups.html so #/groups/{id} and #/join/{code}
+   * survive a refresh and can be shared.
+   */
   function legacyHashTarget() {
     const hash = window.location.hash;
+
     if (/^#\/groups\/[^/]+/.test(hash)) {
-      const id = decodeURIComponent(hash.replace(/^#\/groups\//, ''));
-      return `group.html?id=${encodeURIComponent(id)}`;
+      return `groups.html${hash}`;
     }
-    if (hash === '#/groups') return 'groups.html';
+    if (/^#\/join\/[^/]+/.test(hash)) {
+      return `groups.html${hash}`;
+    }
+    if (hash === '#/groups') return 'groups.html#/groups';
     if (hash === '#/login') return 'login.html';
     return '';
   }

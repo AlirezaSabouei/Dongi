@@ -6,7 +6,7 @@
     <title>گروه‌ها · دنگی</title>
     <meta
       name="description"
-      content="گروه‌های خرج مشترک شما در دنگی."
+      content="گروه‌های خرج مشترک شما در دنگی؛ گروه بسازید یا با کد دعوت به گروهی بپیوندید."
     />
     <meta name="theme-color" content="#0b1120" />
     <meta name="color-scheme" content="light dark" />
@@ -27,7 +27,7 @@
     <div class="app-shell">
       <header class="app-header">
         <div class="app-header-inner">
-          <a class="brand" href="groups.html" aria-label="خانهٔ دنگی">
+          <a class="brand" href="groups.html#/groups" aria-label="خانهٔ دنگی">
             <img class="brand-mark" src="icons/icon.svg" alt="" width="34" height="34" />
             <span class="brand-name">دنگی</span>
           </a>
@@ -35,7 +35,7 @@
           <div class="header-tools">
             <nav class="app-nav" aria-label="ناوبری اصلی">
               <a href="login.html" data-nav="login">ورود</a>
-              <a href="groups.html" data-nav="groups" aria-current="page">گروه‌ها</a>
+              <a href="groups.html#/groups" data-nav="groups" aria-current="page">گروه‌ها</a>
             </nav>
             <button type="button" class="button button-small button-ghost" data-logout>
               خروج
@@ -54,76 +54,120 @@
       </header>
 
       <main id="app" class="app-main" tabindex="-1">
-        <section class="view" aria-labelledby="groups-title">
+        <section class="view" data-view="list" aria-labelledby="groups-title">
           <header class="view-header">
             <div>
               <p class="eyebrow">فضاهای شما</p>
               <h1 id="groups-title">گروه‌ها</h1>
               <p class="lede">
-                هر خرج مشترک درون یک گروه ثبت می‌شود. این کارت‌ها دادهٔ نمونه‌اند تا
-                API گروه‌ها آماده شود.
+                هر خرج مشترک درون یک گروه ثبت می‌شود. یک گروه بسازید یا با کد دعوت
+                به گروه دوستانتان بپیوندید.
               </p>
             </div>
-            <button
-              type="button"
-              class="button button-primary"
-              disabled
-              title="ساخت گروه هنوز پیاده‌سازی نشده است"
-            >
-              گروه جدید
-            </button>
+            <div class="view-actions button-row">
+              <button type="button" class="button button-primary" data-open-create>
+                گروه جدید
+              </button>
+              <button type="button" class="button button-secondary" data-open-join>
+                ورود با کد دعوت
+              </button>
+            </div>
           </header>
 
-          <ul class="group-list" aria-label="گروه‌های نمونه">
-            <li>
-              <a class="group-card" href="group.html?id=household">
-                <span class="avatar" aria-hidden="true">🏠</span>
-                <span class="group-card-text">
-                  <span class="group-card-name">خانه</span>
-                  <span class="group-card-meta">۴ عضو · امروز به‌روز شد</span>
-                </span>
-                <span class="chevron" aria-hidden="true">‹</span>
-              </a>
-            </li>
-            <li>
-              <a class="group-card" href="group.html?id=trip-yazd">
-                <span class="avatar" aria-hidden="true">🧭</span>
-                <span class="group-card-text">
-                  <span class="group-card-name">سفر یزد</span>
-                  <span class="group-card-meta">۶ عضو · تسویه‌شده</span>
-                </span>
-                <span class="chevron" aria-hidden="true">‹</span>
-              </a>
-            </li>
-            <li>
-              <a class="group-card" href="group.html?id=book-club">
-                <span class="avatar" aria-hidden="true">📚</span>
-                <span class="group-card-text">
-                  <span class="group-card-name">باشگاه کتاب</span>
-                  <span class="group-card-meta">۳ عضو · ۲ هزینه</span>
-                </span>
-                <span class="chevron" aria-hidden="true">‹</span>
-              </a>
-            </li>
-          </ul>
+          <p class="form-status groups-status" data-groups-status role="status" aria-live="polite"></p>
 
-          <section class="card api-card" aria-labelledby="api-check-title">
-            <div>
-              <h2 id="api-check-title">اتصال به بک‌اند</h2>
-              <p class="muted">
-                این بررسی سلامت از <code>js/api.js</code> و نشانی پایهٔ
-                <code>js/config.js</code> استفاده می‌کند.
-              </p>
+          <div class="card groups-state" data-groups-loading role="status" aria-live="polite">
+            <div class="skeleton-rows" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
-            <div class="api-card-actions">
-              <button type="button" class="button button-secondary" data-check-api>
-                بررسی API
+            <p class="loading">در حال بارگذاری گروه‌ها…</p>
+          </div>
+
+          <div class="card groups-state" data-groups-error role="alert" hidden>
+            <p class="eyebrow">خطا</p>
+            <h2>گروه‌ها بارگذاری نشد</h2>
+            <p class="muted" data-groups-error-message></p>
+            <div class="button-row">
+              <button type="button" class="button button-secondary" data-retry>
+                تلاش دوباره
               </button>
-              <p class="api-result" data-api-result role="status" aria-live="polite">
-                هنوز بررسی نشده است.
-              </p>
             </div>
-          </section>
+          </div>
+
+          <div class="card groups-state empty-state" data-groups-empty hidden>
+            <span class="avatar avatar-lg" aria-hidden="true">👥</span>
+            <h2>هنوز گروهی ندارید</h2>
+            <p class="muted">
+              اولین گروه را بسازید تا خرج‌های مشترک را با دوستانتان تقسیم کنید.
+            </p>
+            <div class="button-row">
+              <button type="button" class="button button-primary" data-empty-create>
+                ساختن اولین گروه
+              </button>
+              <button type="button" class="button button-secondary" data-empty-join>
+                پیوستن با کد
+              </button>
+            </div>
+          </div>
+
+          <ul class="group-list" data-group-list aria-label="گروه‌های شما" hidden></ul>
+        </section>
+
+        <section class="view" data-view="detail" aria-labelledby="group-title" hidden>
+          <a class="back-link" href="groups.html#/groups" data-back-to-groups>
+            ← همهٔ گروه‌ها
+          </a>
+
+          <div class="card groups-state" data-detail-loading role="status" aria-live="polite">
+            <p class="loading">در حال بارگذاری گروه…</p>
+          </div>
+
+          <div class="card groups-state" data-detail-error role="alert" hidden>
+            <p class="eyebrow">گروه</p>
+            <h2 data-detail-error-title>گروه پیدا نشد</h2>
+            <p class="muted" data-detail-error-message></p>
+            <div class="button-row">
+              <a class="button button-secondary" href="groups.html#/groups">بازگشت به گروه‌ها</a>
+              <button type="button" class="button button-ghost" data-detail-retry>
+                تلاش دوباره
+              </button>
+            </div>
+          </div>
+
+          <div data-detail-content hidden>
+            <header class="view-header group-header">
+              <span class="avatar avatar-lg" aria-hidden="true" data-detail-initials>گ</span>
+              <div>
+                <p class="eyebrow">گروه</p>
+                <h1 id="group-title" data-detail-name>گروه</h1>
+                <p class="lede" data-detail-meta></p>
+              </div>
+            </header>
+
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="stat-label">اعضا</span>
+                <span class="stat-value" data-detail-members>—</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">ساخته‌شده</span>
+                <span class="stat-value stat-value-small" data-detail-created>—</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">شناسهٔ گروه</span>
+                <span class="stat-value stat-value-mono mono" dir="ltr" data-detail-id>—</span>
+              </div>
+            </div>
+
+            <section class="card" aria-labelledby="group-members-title">
+              <h2 id="group-members-title">اعضای گروه</h2>
+              <p class="muted" data-detail-members-note>
+                این گروه هنوز عضوی جز شما ندارد.
+              </p>
+            </section>
+          </div>
         </section>
       </main>
 
@@ -134,6 +178,91 @@
         </p>
       </footer>
     </div>
+
+    <dialog class="modal" data-create-dialog aria-labelledby="create-group-title">
+      <form class="modal-form" data-create-form novalidate>
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">گروه تازه</p>
+            <h2 id="create-group-title">ساخت گروه</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-create aria-label="بستن">
+            ×
+          </button>
+        </header>
+
+        <label class="field" for="create-group-name">
+          <span>نام گروه</span>
+          <input
+            id="create-group-name"
+            name="name"
+            type="text"
+            autocomplete="off"
+            maxlength="100"
+            placeholder="مثلاً سفر یزد"
+            aria-describedby="create-group-hint create-group-error"
+            required
+          />
+        </label>
+        <p id="create-group-hint" class="field-hint">
+          یک نام کوتاه و گویا انتخاب کنید؛ حداکثر ۱۰۰ نویسه.
+        </p>
+        <p id="create-group-error" class="field-error" data-create-error role="alert"></p>
+
+        <div class="button-row">
+          <button type="submit" class="button button-primary" data-create-submit>
+            ساختن گروه
+          </button>
+          <button type="button" class="button button-secondary" data-close-create>
+            انصراف
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-join-dialog aria-labelledby="join-group-title">
+      <form class="modal-form" data-join-form novalidate>
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">کد دعوت</p>
+            <h2 id="join-group-title">پیوستن به گروه</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-join aria-label="بستن">
+            ×
+          </button>
+        </header>
+
+        <label class="field" for="join-code">
+          <span>کد دعوت</span>
+          <input
+            id="join-code"
+            name="inviteCode"
+            type="text"
+            dir="ltr"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="64"
+            placeholder="ABC12345"
+            aria-describedby="join-code-hint join-code-error"
+            required
+          />
+        </label>
+        <p id="join-code-hint" class="field-hint">
+          کد دعوتی که میزبان برایتان فرستاده است را وارد کنید.
+        </p>
+        <p id="join-code-error" class="field-error" data-join-error role="alert"></p>
+
+        <div class="button-row">
+          <button type="submit" class="button button-primary" data-join-submit>
+            پیوستن به گروه
+          </button>
+          <button type="button" class="button button-secondary" data-close-join>
+            انصراف
+          </button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
       <p class="update-toast-text">نسخهٔ تازه‌ای از دنگی آماده است.</p>
