@@ -118,19 +118,32 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
-// Allow the frontend dev server to call the API. The list is configurable via
-// Cors:AllowedOrigins and falls back to the Vite default.
-var allowedOrigins = builder.Configuration
+// Allow frontend clients to call the API. Origins come from
+// Cors:AllowedOrigins; a single "*" entry allows any origin, which is useful
+// for local/LAN testing. Requests authenticate with bearer tokens (no cookies),
+// so AllowAnyOrigin does not expose ambient credentials.
+var configuredOrigins = builder.Configuration
     .GetSection($"{CorsSettings.SectionName}:{nameof(CorsSettings.AllowedOrigins)}")
     .Get<string[]>();
+
+var allowedOrigins = configuredOrigins is { Length: > 0 }
+    ? configuredOrigins
+    : [CorsSettings.DefaultFrontendOrigin];
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsSettings.FrontendPolicy, policy =>
     {
-        policy.WithOrigins(allowedOrigins ?? [CorsSettings.DefaultFrontendOrigin])
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (allowedOrigins.Contains("*", StringComparer.Ordinal))
+        {
+            policy.AllowAnyOrigin();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins);
+        }
+
+        policy.AllowAnyHeader().AllowAnyMethod();
     });
 });
 

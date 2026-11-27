@@ -44,6 +44,23 @@ ASPNETCORE_URLS="http://localhost:5090" dotnet run --no-launch-profile
 In Development the console SMS sender logs the message, including the code, so
 the flow can be exercised without a real SMS provider.
 
+### Access from another machine on the LAN
+
+The default `http` profile listens on `localhost` only. The `lan` profile binds
+all interfaces on port `8082`, matching the frontend's configured API URL:
+
+```bash
+dotnet run --launch-profile lan
+# http://192.168.1.8:8082/swagger
+```
+
+CORS still has to allow the origin the frontend is opened from. Development
+currently allows **any origin** (`Cors:AllowedOrigins: ["*"]`) for convenient
+LAN testing; requests still require a JWT. Replace `*` with the exact frontend
+origin(s) before deploying (or set `Cors__AllowedOrigins__0` on the server).
+Allow inbound TCP `8082` through the firewall. `Groups:FrontendBaseUrl` should
+point at the frontend origin so invite links are usable from the other machine.
+
 To exercise the Production pipeline locally, use the `http-production` profile or
 skip the launch profile:
 
@@ -211,7 +228,7 @@ export Jwt__Secret="<at-least-32-random-bytes>"
 
 | Key                              | Purpose                                                   |
 | -------------------------------- | --------------------------------------------------------- |
-| `Cors:AllowedOrigins`            | Browser origins allowed to call the API                   |
+| `Cors:AllowedOrigins`            | Browser origins allowed to call the API (`["*"]` = any, no cookies) |
 | `MongoDb:ConnectionString`       | MongoDB connection string (empty by default)              |
 | `MongoDb:DatabaseName`           | Mongo database name (`dongi`)                             |
 | `Sms:Provider`                   | `Console` selects the development sender                  |
