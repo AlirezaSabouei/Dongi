@@ -907,6 +907,171 @@ h1[tabindex="-1"]:focus {
 }
 
 /* --------------------------------------------------------------------------
+   Group detail: members, expenses, invite
+   -------------------------------------------------------------------------- */
+
+.detail-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.detail-stack .stat-grid {
+  margin-bottom: 0;
+}
+
+.group-actions {
+  margin-inline-start: auto;
+  align-self: center;
+}
+
+.detail-section {
+  margin: 0;
+}
+
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+}
+
+.section-meta {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding-block: 0.3rem;
+  padding-inline: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.member-chip[data-self="true"] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.member-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.member-badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.avatar-sm {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.expenses-state {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: start;
+}
+
+.expenses-state .loading {
+  padding: 1rem 0;
+  text-align: start;
+}
+
+.expenses-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0 0.5rem;
+  text-align: center;
+}
+
+.expenses-empty .avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  font-size: 1.35rem;
+}
+
+.expense-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expense-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.expense-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.expense-title {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.expense-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.expense-amount {
+  flex: none;
+  margin-inline-start: auto;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-amount small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
    Dialogs
    -------------------------------------------------------------------------- */
 
@@ -1019,8 +1184,49 @@ body:has(dialog[open]) {
 }
 
 /* --------------------------------------------------------------------------
-   Update toast and noscript
+   Update toast, app toast, and noscript
    -------------------------------------------------------------------------- */
+
+.app-toast {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 1.25rem;
+  z-index: 60;
+  width: min(100% - 2rem, 32rem);
+  margin-inline: auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow-md);
+  animation: toast-in 180ms ease-out both;
+}
+
+.app-toast[data-tone="success"] {
+  border-color: var(--success);
+}
+
+.app-toast[data-tone="error"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 .update-toast {
   position: fixed;
@@ -1117,6 +1323,23 @@ body:has(dialog[open]) {
 
   .view-actions .button {
     flex: 1;
+  }
+
+  .group-actions {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+
+  .group-actions .button {
+    width: 100%;
+  }
+
+  .expense-item {
+    flex-wrap: wrap;
+  }
+
+  .expense-amount {
+    margin-inline-start: 0;
   }
 
   .app-footer {

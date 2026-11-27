@@ -283,6 +283,23 @@ export function getGroupInvite(id, options = {}) {
   );
 }
 
+/**
+ * Read the expenses of a group, newest first. Only members may read them.
+ *
+ * The list items are lean (`id`, `title`, `amount`, `payerId`, `createdAt`,
+ * `memberCount`); split details live on the expense-detail endpoint.
+ *
+ * @param {string} id
+ * @param {object} [options]
+ * @returns {Promise<Array<{ id: string, title: string, amount: number, payerId: string, createdAt: string, memberCount?: number }>>}
+ */
+export function listGroupExpenses(id, options = {}) {
+  return authenticatedRequest(
+    `/groups/${encodeURIComponent(id)}/expenses`,
+    { ...options, method: 'GET' },
+  );
+}
+
 async function parseResponse(response) {
   if (response.status === 204 || response.status === 205) return null;
 

@@ -129,20 +129,31 @@
             <h2 data-detail-error-title>گروه پیدا نشد</h2>
             <p class="muted" data-detail-error-message></p>
             <div class="button-row">
-              <a class="button button-secondary" href="groups.html#/groups">بازگشت به گروه‌ها</a>
+              <a
+                class="button button-secondary"
+                href="groups.html#/groups"
+                data-detail-error-back
+              >
+                بازگشت به گروه‌ها
+              </a>
               <button type="button" class="button button-ghost" data-detail-retry>
                 تلاش دوباره
               </button>
             </div>
           </div>
 
-          <div data-detail-content hidden>
+          <div class="detail-stack" data-detail-content hidden>
             <header class="view-header group-header">
               <span class="avatar avatar-lg" aria-hidden="true" data-detail-initials>گ</span>
               <div>
                 <p class="eyebrow">گروه</p>
                 <h1 id="group-title" data-detail-name>گروه</h1>
                 <p class="lede" data-detail-meta></p>
+              </div>
+              <div class="view-actions button-row group-actions">
+                <button type="button" class="button button-primary" data-invite>
+                  دعوت دوستان
+                </button>
               </div>
             </header>
 
@@ -152,20 +163,64 @@
                 <span class="stat-value" data-detail-members>—</span>
               </div>
               <div class="stat-card">
-                <span class="stat-label">ساخته‌شده</span>
-                <span class="stat-value stat-value-small" data-detail-created>—</span>
+                <span class="stat-label">هزینه‌ها</span>
+                <span class="stat-value" data-detail-expense-count>—</span>
               </div>
               <div class="stat-card">
-                <span class="stat-label">شناسهٔ گروه</span>
-                <span class="stat-value stat-value-mono mono" dir="ltr" data-detail-id>—</span>
+                <span class="stat-label">جمع هزینه‌ها</span>
+                <span class="stat-value stat-value-small" data-detail-expense-total>—</span>
               </div>
             </div>
 
-            <section class="card" aria-labelledby="group-members-title">
-              <h2 id="group-members-title">اعضای گروه</h2>
-              <p class="muted" data-detail-members-note>
-                این گروه هنوز عضوی جز شما ندارد.
-              </p>
+            <section class="card detail-section" aria-labelledby="group-members-title">
+              <div class="section-heading">
+                <h2 id="group-members-title">اعضای گروه</h2>
+              </div>
+              <ul
+                class="member-list"
+                data-detail-member-list
+                aria-label="اعضای گروه"
+              ></ul>
+              <p class="muted" data-detail-members-note hidden></p>
+            </section>
+
+            <section class="card detail-section" aria-labelledby="expenses-title">
+              <div class="section-heading">
+                <h2 id="expenses-title">هزینه‌ها</h2>
+                <span class="section-meta muted" data-expenses-count></span>
+              </div>
+
+              <div
+                class="expenses-state"
+                data-expenses-loading
+                role="status"
+                aria-live="polite"
+              >
+                <p class="loading">در حال بارگذاری هزینه‌ها…</p>
+              </div>
+
+              <div class="expenses-state" data-expenses-error role="alert" hidden>
+                <p class="muted" data-expenses-error-message></p>
+                <button
+                  type="button"
+                  class="button button-secondary button-small"
+                  data-expenses-retry
+                >
+                  تلاش دوباره
+                </button>
+              </div>
+
+              <div class="expenses-empty" data-expenses-empty hidden>
+                <span class="avatar" aria-hidden="true">🧾</span>
+                <p class="muted">هنوز هزینه‌ای ثبت نشده است.</p>
+              </div>
+
+              <ul
+                class="expense-list"
+                data-expense-list
+                aria-label="هزینه‌های گروه"
+                hidden
+              ></ul>
             </section>
           </div>
         </section>
@@ -263,6 +318,8 @@
         </div>
       </form>
     </dialog>
+
+    <div class="app-toast" data-toast role="status" aria-live="polite" hidden></div>
 
     <div id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
       <p class="update-toast-text">نسخهٔ تازه‌ای از دنگی آماده است.</p>

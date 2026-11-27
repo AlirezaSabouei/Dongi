@@ -34,14 +34,15 @@ The interface is Persian (fa) and right-to-left:
 | --- | --- |
 | `index.html` | Small start-page gate: sends visitors to login or groups using the stored token |
 | `login.html` | Phone + SMS code form; starts the login flow |
-| `groups.html` | Group list, create dialog, join dialog, `#/groups/{id}` detail, and hash router |
+| `groups.html` | Group list, create dialog, join dialog, `#/groups/{id}` detail (members, expenses, invite), and hash router |
 | `group.html` | Legacy `?id=` entry point; redirects to `groups.html#/groups/{id}` |
 | `404.html` | Standalone not-found page |
 | `css/styles.css` | Responsive light/dark theme, no framework |
 | `js/guard.js` | Blocking auth guard loaded in each page's `<head>` |
 | `js/shell.js` | Shared chrome: connection badge, skip link, logout, API label, service worker |
 | `js/login.js` | Login validation, API calls, resend cooldown, token storage |
-| `js/groups.js` | Hash routes, list loading/empty/error states, create and join flows, detail rendering, 401 handling |
+| `js/groups.js` | Hash routes, list loading/empty/error states, create and join flows, detail rendering (members, expenses, invite sharing), 401 handling |
+| `js/expenses.js` | Reusable expense rows, amount/date formatting, and expense totals |
 | `js/group.js` | Legacy `group.html?id=` redirect |
 | `js/not-found.js` | Chrome for the 404 page |
 | `js/api.js` | `fetch` wrapper with configurable base URL, JSON handling, timeouts, bearer auth, `ApiError` |
@@ -161,7 +162,7 @@ redirects to `login.html`, preserving the current group/join route in `next`.
 | Route | View |
 | --- | --- |
 | `groups.html#/groups` | Group list, create dialog, join dialog |
-| `groups.html#/groups/{id}` | Group detail for a member |
+| `groups.html#/groups/{id}` | Group detail: members, expenses, invite sharing |
 | `groups.html#/join/{code}` | Group list with the join dialog pre-filled |
 
 - The list calls `GET /groups` and renders each group's name and member count.
@@ -177,8 +178,20 @@ redirects to `login.html`, preserving the current group/join route in `next`.
 - Opening `#/join/ABC123` directly opens the join modal with `ABC123` filled in,
   so invite links shared by the backend
   (`{Groups:FrontendBaseUrl}/#/join/{inviteCode}`) work.
-- The detail route fetches `GET /groups/{id}` and shows the name, member count,
-  creation date, and id. A `403`/`404` shows a not-found state.
+- The detail route fetches `GET /groups/{id}` and shows the name, member
+  avatars/initials, member count, and creation date. A `403` shows **شما عضو این
+  گروه نیستید** with a back link, and a `404` shows **گروه پیدا نشد**; neither
+  case crashes the page.
+- The detail route also fetches `GET /groups/{id}/expenses` and renders each
+  expense's title, amount (Rials), payer, and date, with a **هنوز هزینه‌ای ثبت
+  نشده است** empty state. Expense rendering lives in `js/expenses.js` so the
+  later expense views (issues #11–#12) can reuse it. If the temporary backend
+  does not expose the expenses endpoint yet, the section falls back to the empty
+  state instead of failing the group page.
+- **دعوت دوستان** (invite) fetches `GET /groups/{id}/invite` and shares the
+  returned join URL through `navigator.share` when available. Browsers without
+  the Web Share API copy the URL to the clipboard instead (with a
+  selection-based fallback for insecure origins) and confirm it in a toast.
 - Legacy `group.html?id={id}` links redirect to `groups.html#/groups/{id}`.
 
 ## Pages
@@ -188,7 +201,7 @@ redirects to `login.html`, preserving the current group/join route in `next`.
 | `index.html` | Start-page gate | Public; redirects to login or groups |
 | `login.html` | Phone + SMS code login | Signed-out only; signed-in users go to `groups.html` |
 | `groups.html#/groups` | Group list, create/join modals | Requires a token |
-| `groups.html#/groups/:id` | Group detail | Requires a token and membership |
+| `groups.html#/groups/:id` | Group detail: members, expenses, invite sharing | Requires a token and membership |
 | `groups.html#/join/:code` | Join modal pre-filled from invite link | Requires a token |
 | `group.html?id=:id` | Legacy detail link; redirects to the hash route | Requires a token |
 | `404.html` | Not-found page | Public |
@@ -270,12 +283,30 @@ Groups checks (issue #8):
 15. **Legacy detail link** — open `group.html?id={id}`; the browser lands on
     `groups.html#/groups/{id}` and renders the same group.
 
+Group page checks (issue #9):
+
+16. **Member view** — open `groups.html#/groups/{id}` for a group you belong to;
+    the group name, member avatars/initials, and member count render, and the
+    expense list shows title, amount, payer, and date (or the empty state).
+17. **No expenses** — open a fresh group; **هنوز هزینه‌ای ثبت نشده است** is
+    shown instead of an empty list.
+18. **Invite with Web Share** — in a browser with `navigator.share` (or a mocked
+    `navigator.share`), click **دعوت دوستان**; the share sheet is invoked with
+    the join URL.
+19. **Invite without Web Share** — delete/mock out `navigator.share`, click
+    **دعوت دوستان**, and confirm the clipboard contains the join URL and a
+    success toast appears.
+20. **Non-member** — open a group URL for a group you do not belong to; **شما
+    عضو این گروه نیستید** and a back link render, with no uncaught errors.
+21. **Unknown group** — open `groups.html#/groups/not-an-id`; **گروه پیدا نشد**
+    renders with a back link.
+
 Page checks:
 
 - **Manifest** — DevTools → Application → Manifest detects the name, start URL,
   display mode, and both icon sizes without errors.
 - **Service worker** — DevTools → Application → Service Workers shows
-  `service-worker.js` activated; Cache Storage contains `dongi-shell-v7` with
+  `service-worker.js` activated; Cache Storage contains `dongi-shell-v8` with
   the HTML pages and modules.
 - **Offline** — after one visit, switch DevTools → Network → **Offline** and
   reload `groups.html#/groups`; the cached shell still renders (API data is not
@@ -303,6 +334,7 @@ Page checks:
     │   ├── shell.js
     │   ├── login.js
     │   ├── groups.js
+    │   ├── expenses.js
     │   ├── group.js
     │   ├── not-found.js
     │   ├── api.js
