@@ -151,7 +151,10 @@
                 <p class="lede" data-detail-meta></p>
               </div>
               <div class="view-actions button-row group-actions">
-                <button type="button" class="button button-primary" data-invite>
+                <button type="button" class="button button-primary" data-open-expense>
+                  افزودن هزینه
+                </button>
+                <button type="button" class="button button-secondary" data-invite>
                   دعوت دوستان
                 </button>
               </div>
@@ -313,6 +316,126 @@
             پیوستن به گروه
           </button>
           <button type="button" class="button button-secondary" data-close-join>
+            انصراف
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      class="modal modal-wide"
+      data-expense-dialog
+      aria-labelledby="expense-dialog-title"
+    >
+      <form class="modal-form" data-expense-form novalidate>
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">هزینهٔ تازه</p>
+            <h2 id="expense-dialog-title">افزودن هزینه</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-expense aria-label="بستن">
+            ×
+          </button>
+        </header>
+
+        <label class="field" for="expense-title-input">
+          <span>عنوان</span>
+          <input
+            id="expense-title-input"
+            name="title"
+            type="text"
+            autocomplete="off"
+            maxlength="200"
+            placeholder="مثلاً شام"
+            aria-describedby="expense-title-error"
+            required
+          />
+        </label>
+        <p
+          id="expense-title-error"
+          class="field-error"
+          data-expense-title-error
+          role="alert"
+        ></p>
+
+        <label class="field" for="expense-description">
+          <span>توضیح (اختیاری)</span>
+          <textarea
+            id="expense-description"
+            name="description"
+            rows="2"
+            maxlength="1000"
+            placeholder="جزئیات کوتاه…"
+            aria-describedby="expense-description-error"
+          ></textarea>
+        </label>
+        <p
+          id="expense-description-error"
+          class="field-error"
+          data-expense-description-error
+          role="alert"
+        ></p>
+
+        <label class="field" for="expense-amount">
+          <span>مبلغ (ریال)</span>
+          <input
+            id="expense-amount"
+            class="amount-input"
+            name="amount"
+            type="text"
+            inputmode="numeric"
+            dir="ltr"
+            autocomplete="off"
+            placeholder="۳٬۰۰۰"
+            aria-describedby="expense-amount-hint expense-amount-error"
+            required
+          />
+        </label>
+        <p id="expense-amount-hint" class="field-hint">
+          عدد صحیح و بزرگ‌تر از صفر؛ مثلاً ۳٬۰۰۰ ریال.
+        </p>
+        <p
+          id="expense-amount-error"
+          class="field-error"
+          data-expense-amount-error
+          role="alert"
+        ></p>
+
+        <fieldset
+          class="member-picker"
+          aria-describedby="expense-members-hint expense-members-error"
+        >
+          <legend>تقسیم بین</legend>
+          <p id="expense-members-hint" class="field-hint">
+            پرداخت‌کننده شما هستید و همیشه در تقسیم می‌ماند؛ بقیهٔ اعضا را می‌توانید
+            انتخاب کنید.
+          </p>
+          <ul
+            class="member-option-list"
+            data-expense-members
+            aria-label="اعضای تقسیم"
+          ></ul>
+          <p
+            id="expense-members-error"
+            class="field-error"
+            data-expense-members-error
+            role="alert"
+          ></p>
+        </fieldset>
+
+        <div class="split-preview" data-expense-preview aria-live="polite">
+          <p class="split-preview-empty">
+            برای دیدن تقسیم، مبلغ و حداقل یک عضو را مشخص کنید.
+          </p>
+        </div>
+
+        <p class="form-status" data-expense-error role="alert"></p>
+
+        <div class="button-row">
+          <button type="submit" class="button button-primary" data-expense-submit>
+            ثبت هزینه
+          </button>
+          <button type="button" class="button button-secondary" data-close-expense>
             انصراف
           </button>
         </div>

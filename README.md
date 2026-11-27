@@ -47,6 +47,11 @@ API is configured at <http://192.168.1.8:8082> (Swagger:
   `GET /groups/{id}/expenses` (title, amount, payer, date, empty state), and a
   **دعوت دوستان** button that shares the invite URL or copies it with a toast.
   Friendly 403/404 states keep non-members and unknown groups on a working page.
+- **افزودن هزینه** modal with title, optional description, integer Rial amount,
+  and a member multi-select. All members are selected by default, the payer is
+  locked in, and a live per-person preview follows the backend's equal-split
+  remainder rule. Submitting calls `POST /groups/{id}/expenses`, closes the
+  modal, and refreshes the list; client and server errors stay inline.
 - Persian RTL UI, light/dark themes, installable PWA shell, and an offline
   fallback for visited pages.
 

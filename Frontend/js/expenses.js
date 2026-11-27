@@ -125,6 +125,95 @@ export function sumExpenseAmounts(expenses) {
   return found ? total : null;
 }
 
+const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const THOUSANDS_SEPARATORS = /[\s,٬،]/g;
+
+/**
+ * Parse a Rial amount typed by the user.
+ *
+ * The API stores amounts as integer Rials, so only whole positive numbers are
+ * accepted. Persian/Arabic-Indic digits are converted and common thousands
+ * separators are ignored, which lets people type `۳٬۰۰۰` or `3,000`.
+ *
+ * @param {unknown} raw
+ * @returns {number | null} `null` for empty, zero, negative, fractional, or
+ *   out-of-range input.
+ */
+export function parseRialAmount(raw) {
+  if (typeof raw === 'number') {
+    return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+  }
+
+  const ascii = String(raw ?? '').replace(/[۰-۹٠-٩]/g, (digit) => {
+    const persianIndex = PERSIAN_DIGITS.indexOf(digit);
+    if (persianIndex >= 0) return String(persianIndex);
+    return String(ARABIC_DIGITS.indexOf(digit));
+  });
+
+  const cleaned = ascii.replace(THOUSANDS_SEPARATORS, '');
+  if (!/^\d+$/.test(cleaned)) return null;
+
+  const amount = Number(cleaned);
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}
+
+/**
+ * De-duplicate, trim, and sort member ids for a split.
+ *
+ * Sorting makes the request order — and therefore the remainder allocation —
+ * stable regardless of the order members were rendered in.
+ *
+ * @param {unknown} memberIds
+ * @returns {string[]}
+ */
+export function normalizeMemberIds(memberIds) {
+  if (!Array.isArray(memberIds)) return [];
+
+  const ids = new Set();
+  for (const entry of memberIds) {
+    const id =
+      typeof entry === 'string' ? entry.trim() : String(entry ?? '').trim();
+    if (id) ids.add(id);
+  }
+
+  return Array.from(ids).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * Split an integer Rial amount equally across the given members.
+ *
+ * This mirrors the backend's equal-split remainder rule exactly:
+ *
+ *   1. `base = Math.floor(amount / memberCount)`
+ *   2. `remainder = amount - base * memberCount` (`0 <= remainder < count`)
+ *   3. the `remainder` extra Rials are handed out one at a time, in order, to
+ *      the first `remainder` entries of the normalized `memberIds` list.
+ *
+ * The form sends member ids in the same normalized (sorted) order, so the
+ * preview and the server assign the extra Rial to the same people, and the
+ * shares always add back up to `amount` — the 1-Rial rounding difference is
+ * never dropped.
+ *
+ * @param {unknown} amount
+ * @param {unknown} memberIds
+ * @returns {Array<{ memberId: string, share: number }> | null} `null` when the
+ *   amount or member list is unusable.
+ */
+export function calculateEqualSplit(amount, memberIds) {
+  const total = parseRialAmount(amount);
+  const ids = normalizeMemberIds(memberIds);
+  if (total === null || ids.length === 0) return null;
+
+  const base = Math.floor(total / ids.length);
+  const remainder = total - base * ids.length;
+
+  return ids.map((memberId, index) => ({
+    memberId,
+    share: base + (index < remainder ? 1 : 0),
+  }));
+}
+
 /**
  * Normalize an expense-list payload to an array.
  * @param {unknown} data

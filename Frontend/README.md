@@ -34,15 +34,15 @@ The interface is Persian (fa) and right-to-left:
 | --- | --- |
 | `index.html` | Small start-page gate: sends visitors to login or groups using the stored token |
 | `login.html` | Phone + SMS code form; starts the login flow |
-| `groups.html` | Group list, create dialog, join dialog, `#/groups/{id}` detail (members, expenses, invite), and hash router |
+| `groups.html` | Group list, create dialog, join dialog, `#/groups/{id}` detail (members, expenses, add-expense form, invite), and hash router |
 | `group.html` | Legacy `?id=` entry point; redirects to `groups.html#/groups/{id}` |
 | `404.html` | Standalone not-found page |
 | `css/styles.css` | Responsive light/dark theme, no framework |
 | `js/guard.js` | Blocking auth guard loaded in each page's `<head>` |
 | `js/shell.js` | Shared chrome: connection badge, skip link, logout, API label, service worker |
 | `js/login.js` | Login validation, API calls, resend cooldown, token storage |
-| `js/groups.js` | Hash routes, list loading/empty/error states, create and join flows, detail rendering (members, expenses, invite sharing), 401 handling |
-| `js/expenses.js` | Reusable expense rows, amount/date formatting, and expense totals |
+| `js/groups.js` | Hash routes, list loading/empty/error states, create/join flows, detail rendering (members, expenses, invite sharing), add-expense form and validation, 401 handling |
+| `js/expenses.js` | Reusable expense rows, amount/date formatting, expense totals, and the shared equal-split remainder rule |
 | `js/group.js` | Legacy `group.html?id=` redirect |
 | `js/not-found.js` | Chrome for the 404 page |
 | `js/api.js` | `fetch` wrapper with configurable base URL, JSON handling, timeouts, bearer auth, `ApiError` |
@@ -188,10 +188,26 @@ redirects to `login.html`, preserving the current group/join route in `next`.
   later expense views (issues #11–#12) can reuse it. If the temporary backend
   does not expose the expenses endpoint yet, the section falls back to the empty
   state instead of failing the group page.
+- **افزودن هزینه** (add expense) opens a modal with title, optional description,
+  an integer Rial amount, and a member multi-select. Every group member is
+  selected by default; the signed-in payer stays checked and disabled so the
+  payer can never be removed from the split. A live preview shows each selected
+  member's share. Submit validates the title, a positive integer amount, and at
+  least one member locally, then calls `POST /groups/{id}/expenses` with
+  `{ title, description?, amount, payerId, memberIds }`. On success the modal
+  closes, a toast appears, and `GET /groups/{id}/expenses` is re-read so the
+  list and totals come from the server. A `400` or `403` is shown inline and the
+  modal stays open for correction.
 - **دعوت دوستان** (invite) fetches `GET /groups/{id}/invite` and shares the
   returned join URL through `navigator.share` when available. Browsers without
   the Web Share API copy the URL to the clipboard instead (with a
   selection-based fallback for insecure origins) and confirm it in a toast.
+- Live split previews use the same remainder rule as the backend (implemented
+  in `calculateEqualSplit` in `js/expenses.js`): `base = floor(amount / count)`,
+  `remainder = amount - base * count`, and the `remainder` extra Rials are given
+  one at a time to the first members of the sorted `memberIds` list. The form
+  sends that same sorted order, so the preview always adds up to the full amount
+  and assigns the rounding Rial to the same people.
 - Legacy `group.html?id={id}` links redirect to `groups.html#/groups/{id}`.
 
 ## Pages
@@ -201,7 +217,7 @@ redirects to `login.html`, preserving the current group/join route in `next`.
 | `index.html` | Start-page gate | Public; redirects to login or groups |
 | `login.html` | Phone + SMS code login | Signed-out only; signed-in users go to `groups.html` |
 | `groups.html#/groups` | Group list, create/join modals | Requires a token |
-| `groups.html#/groups/:id` | Group detail: members, expenses, invite sharing | Requires a token and membership |
+| `groups.html#/groups/:id` | Group detail: members, expenses, add-expense form, invite sharing | Requires a token and membership |
 | `groups.html#/join/:code` | Join modal pre-filled from invite link | Requires a token |
 | `group.html?id=:id` | Legacy detail link; redirects to the hash route | Requires a token |
 | `404.html` | Not-found page | Public |
@@ -301,12 +317,34 @@ Group page checks (issue #9):
 21. **Unknown group** — open `groups.html#/groups/not-an-id`; **گروه پیدا نشد**
     renders with a back link.
 
+Add-expense checks (issue #12):
+
+22. **Open the form** — from a group page click **افزودن هزینه**; every member
+    is selected, the payer's checkbox is checked and disabled, and the title
+    field has focus.
+23. **Equal preview** — type `3000` with three selected members; the preview
+    shows **هر نفر ۱٬۰۰۰ ریال**.
+24. **Remainder preview** — type `1000` with three selected members; the
+    per-person rows show 334/333/333 and add up to 1000 (difference ≤ 1).
+25. **Single split** — deselect every member except the payer; the preview shows
+    the full amount for the payer and submit stays allowed.
+26. **Client validation** — submit with an empty title, then with amount `0`;
+    inline errors appear and DevTools → Network shows **no**
+    `POST /groups/{id}/expenses`.
+27. **Successful submit** — fill a title and a positive integer amount, submit,
+    and confirm the request body has `payerId` plus the sorted `memberIds`; the
+    modal closes, a success toast appears, and the list shows the new expense.
+28. **Server errors** — force a `403` (non-member) or `400` from the API; the
+    message is shown inline, the modal stays open, and the form remains usable.
+29. **Expired token** — submit with an invalid/expired JWT; the page redirects to
+    `login.html` with the group route preserved.
+
 Page checks:
 
 - **Manifest** — DevTools → Application → Manifest detects the name, start URL,
   display mode, and both icon sizes without errors.
 - **Service worker** — DevTools → Application → Service Workers shows
-  `service-worker.js` activated; Cache Storage contains `dongi-shell-v8` with
+  `service-worker.js` activated; Cache Storage contains `dongi-shell-v9` with
   the HTML pages and modules.
 - **Offline** — after one visit, switch DevTools → Network → **Offline** and
   reload `groups.html#/groups`; the cached shell still renders (API data is not

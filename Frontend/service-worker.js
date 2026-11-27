@@ -13,7 +13,7 @@
  * the new files; pages and app modules are served from this cache.
  */
 
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const SHELL_CACHE = `dongi-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `dongi-runtime-${CACHE_VERSION}`;
 
