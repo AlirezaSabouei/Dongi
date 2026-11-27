@@ -8,7 +8,7 @@
  * the rest of the UI.
  */
 
-const DEFAULT_API_BASE_URL = 'http://localhost:5080';
+const DEFAULT_API_BASE_URL = 'http://192.168.1.8:8082';
 const DEFAULT_TIMEOUT_MS = 8000;
 const FA_NUMBER = new Intl.NumberFormat('fa-IR');
 
@@ -175,6 +175,35 @@ export async function request(path, options = {}) {
  */
 export function getHealth(options = {}) {
   return request('/health', { ...options, method: 'GET' });
+}
+
+/**
+ * Ask the API to SMS a six-digit login code.
+ * @param {string} phone E.164 number, e.g. `+989121234567`.
+ * @param {object} [options]
+ * @returns {Promise<{ message?: string }>}
+ */
+export function requestLoginCode(phone, options = {}) {
+  return request('/auth/request-code', {
+    ...options,
+    method: 'POST',
+    body: { phone },
+  });
+}
+
+/**
+ * Redeem a login code. Resolves with `{ token, user }` on success.
+ * @param {string} phone E.164 number.
+ * @param {string} code Six-digit SMS code.
+ * @param {object} [options]
+ * @returns {Promise<{ token: string, user?: { id?: string, phone?: string } }>}
+ */
+export function verifyLoginCode(phone, code, options = {}) {
+  return request('/auth/verify-code', {
+    ...options,
+    method: 'POST',
+    body: { phone, code },
+  });
 }
 
 async function parseResponse(response) {
