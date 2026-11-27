@@ -53,7 +53,8 @@ public sealed class AuthEndpointsTests : IClassFixture<DongiApiFactory>
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("09121234567")]
+    [InlineData("08121234567")]
+    [InlineData("0912123456")]
     [InlineData("+98912")]
     [InlineData("not-a-phone")]
     [InlineData("++989121234567")]
@@ -66,6 +67,32 @@ public sealed class AuthEndpointsTests : IClassFixture<DongiApiFactory>
 
         using var json = await DongiApiFactory.ReadJsonAsync(response);
         Assert.Equal("Invalid phone number.", json.RootElement.GetProperty("message").GetString());
+    }
+
+    [Theory]
+    [InlineData("plain")]
+    [InlineData("spaces")]
+    [InlineData("dashes")]
+    public async Task RequestCode_WithIranianNationalMobile_NormalizesToE164(string format)
+    {
+        var normalized = DongiApiFactory.NewPhoneNumber();
+        var local = "0" + normalized[3..];
+
+        var input = format switch
+        {
+            "spaces" => $"{local[..4]} {local[4..7]} {local[7..]}",
+            "dashes" => $"{local[..4]}-{local[4..7]}-{local[7..]}",
+            _ => local,
+        };
+
+        var response = await _client.PostAsJsonAsync("/auth/request-code", new { phone = input });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Matches(@"^\d{6}$", _factory.Sms.LastCodeFor(normalized));
+
+        var otp = await FindOtpAsync(normalized);
+        Assert.NotNull(otp);
+        Assert.Equal(normalized, otp["phone"].AsString);
     }
 
     [Fact]

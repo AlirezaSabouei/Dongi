@@ -8,8 +8,13 @@ Implemented so far:
 - `GET /health` liveness probe
 - `POST /auth/request-code` — issue a six-digit SMS login code
 - `POST /auth/verify-code` — redeem the code and receive a JWT
-- MongoDB persistence for OTPs, per-phone rate-limit windows, and users
-- TTL indexes so expired OTPs and stale counters are removed automatically
+- `POST /groups`, `GET /groups`, `GET /groups/{id}` — authenticated group
+  creation, listing, and detail
+- `POST /groups/join` and `GET /groups/{id}/invite` — invite-code joining and
+  shareable join links
+- MongoDB persistence for OTPs, per-phone rate-limit windows, users, and groups
+- TTL indexes so expired OTPs and stale counters are removed automatically;
+  unique invite-code index so codes cannot be reused
 - Per-phone and per-IP rate limiting
 - Swagger UI in Development, CORS for the frontend dev server
 
@@ -56,11 +61,27 @@ without them the API fails fast with a clear configuration error.
 | GET    | `/health`           | all         | Liveness probe, always 200               |
 | POST   | `/auth/request-code`| all         | Send an OTP to an E.164 phone number     |
 | POST   | `/auth/verify-code` | all         | Verify an OTP, return a JWT and the user |
+| POST   | `/groups`           | all         | Create a group (auth required)           |
+| GET    | `/groups`           | all         | List groups the caller belongs to        |
+| GET    | `/groups/{id}`      | all         | Group detail, members only               |
+| POST   | `/groups/join`      | all         | Join a group by invite code              |
+| GET    | `/groups/{id}/invite` | all       | Invite code and shareable join URL       |
 | GET    | `/swagger`          | Development | Swagger UI                               |
 | GET    | `/swagger/v1/swagger.json` | Development | OpenAPI document                  |
 
 Swagger is only registered when `ASPNETCORE_ENVIRONMENT=Development`; in
 Production the `/swagger` routes return `404`.
+
+### Authorizing in Swagger
+
+Group endpoints require a JWT, so Swagger UI shows an **Authorize** button
+(lock icons appear only on authenticated operations; `/health` and the auth
+endpoints stay open):
+
+1. Call `POST /auth/verify-code` and copy the `token` from the response.
+2. Click **Authorize** and paste the token **without** the `Bearer ` prefix.
+3. Click **Authorize** / **Close**, then call the group endpoints; Swagger adds
+   the `Authorization: Bearer …` header to each request.
 
 ### Request a code
 
@@ -74,8 +95,11 @@ curl -i -X POST http://localhost:5080/auth/request-code \
 
 The API validates and normalizes the phone number to E.164. Formatting
 characters (`+98 912 123 4567`, `+98-912-123-4567`) and the international `00`
-prefix (`00989121234567`) are accepted; a national-format number such as
-`09121234567` is rejected with a generic `400`.
+prefix (`00989121234567`) are accepted. Iranian mobile numbers in national form
+(`09121234567`, `0912 123 4567`) are accepted too and stored as
+`+989121234567`, so every spelling of the same number shares one account and
+rate-limit bucket. Other national formats (for example `08121234567`) are
+rejected with a generic `400`.
 
 In Development the generated code appears in the API log:
 
@@ -104,6 +128,52 @@ Wrong, expired, already-used, or unknown-phone codes all return the same generic
 ```json
 { "message": "Invalid or expired verification code." }
 ```
+
+## Groups
+
+Every group endpoint requires `Authorization: Bearer <token>`; the caller is the
+token's `sub` claim. Requests without a valid token receive `401`.
+
+A group is `{ id, name, ownerId, memberIds, createdAt }`. The creator becomes the
+owner and the first member. Invite codes are eight-character base62 strings,
+unique across all groups (enforced by a unique MongoDB index), and are returned
+only by the invite endpoint.
+
+| Endpoint | Success | Notes |
+| --- | --- | --- |
+| `POST /groups` `{ "name": "Trip" }` | `201` | Trimmed name, 1–100 characters |
+| `GET /groups` | `200` array | Only groups the caller is a member of, newest first |
+| `GET /groups/{id}` | `200` | `403` for non-members, `404` for unknown/malformed ids |
+| `POST /groups/join` `{ "inviteCode": "ABC12345" }` | `200` group | Idempotent: joining twice is a no-op; unknown code → `404` |
+| `GET /groups/{id}/invite` | `200` `{ inviteCode, joinUrl }` | Members only; `joinUrl` is `{Groups:FrontendBaseUrl}/#/join/{inviteCode}` |
+
+```bash
+TOKEN="eyJhbGciOiJIUzI1NiIs..."   # from POST /auth/verify-code
+
+# Create a group; the Location header points at the new group.
+curl -i -X POST http://localhost:5080/groups \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Trip"}'
+# HTTP/1.1 201 Created
+# {"id":"66f...","name":"Trip","ownerId":"66e...","memberIds":["66e..."],"createdAt":"..."}
+
+# List, read, and invite.
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5080/groups
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5080/groups/66f...
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5080/groups/66f.../invite
+# {"inviteCode":"aB3dE9xQ","joinUrl":"http://localhost:5173/#/join/aB3dE9xQ"}
+
+# Join with the code (safe to retry).
+curl -i -X POST http://localhost:5080/groups/join \
+  -H "Authorization: Bearer $OTHER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"inviteCode":"aB3dE9xQ"}'
+```
+
+If five generated codes in a row collide with existing groups, creation returns
+`409` instead of retrying forever. The retry count is configurable through
+`Groups:MaxInviteCodeAttempts`.
 
 ## Authentication rules
 
@@ -156,6 +226,9 @@ export Jwt__Secret="<at-least-32-random-bytes>"
 | `Otp:MaxRequestsPerWindow`       | Per-phone requests allowed per window (`3`)               |
 | `RateLimiting:AuthIpPermitLimit` | Auth requests allowed per IP per window (`20`)            |
 | `RateLimiting:AuthIpWindowMinutes` | IP rate-limit window (`60`)                             |
+| `Groups:FrontendBaseUrl`         | Origin used to build invite join links (`http://localhost:5173`) |
+| `Groups:NameMaxLength`           | Maximum group-name length (`100`)                         |
+| `Groups:MaxInviteCodeAttempts`   | Code-generation retries on collision (`5`)                |
 
 `appsettings.Development.json` contains a clearly marked development-only JWT
 secret and `Sms:Provider = Console`. CORS defaults to `http://localhost:5173`
@@ -178,6 +251,8 @@ a controllable clock and a capturing SMS sender to cover:
 - per-phone rate limiting, normalization, and window reset
 - the per-IP limit
 - TTL/unique indexes
+- group creation, member-only reads (`403`), invite links, and joining
+- idempotent joins, invalid codes (`404`), and invite-code collision retries
 
 Run them with:
 
@@ -197,11 +272,11 @@ DONGI_TEST_MONGO="mongodb://localhost:27018" dotnet test Backend.Tests/Dongi.Api
 ```
 Backend/
 ├── Auth/           # Phone normalization, JWT settings and token service
-├── Controllers/    # API controllers (HealthController, AuthController)
+├── Controllers/    # API controllers (Health, Auth, Groups)
 ├── Data/           # Mongo context, repositories, rate limiter, index initializer
 ├── DTOs/           # Request/response contracts
-├── Models/         # Domain documents (OtpCode, OtpRequestLimit, User)
-├── Services/       # OTP/auth services, SMS senders, settings
+├── Models/         # Domain documents (OtpCode, OtpRequestLimit, User, Group)
+├── Services/       # OTP/auth/group services, SMS senders, settings
 ├── Startup/        # CORS, rate-limit settings, exception handling
 ├── Properties/     # launchSettings.json
 ├── Program.cs      # Composition root and HTTP pipeline

@@ -1,5 +1,8 @@
 @Dongi.Api_HostAddress = http://localhost:5080
 @phone = +989121234567
+@token = paste-the-jwt-from-verify-code-here
+@groupId = paste-a-group-id-here
+@inviteCode = paste-an-invite-code-here
 
 GET {{Dongi.Api_HostAddress}}/health
 Accept: application/json
@@ -22,6 +25,44 @@ Content-Type: application/json
 {
   "phone": "{{phone}}",
   "code": "123456"
+}
+
+###
+
+POST {{Dongi.Api_HostAddress}}/groups
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Trip"
+}
+
+###
+
+GET {{Dongi.Api_HostAddress}}/groups
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+GET {{Dongi.Api_HostAddress}}/groups/{{groupId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+GET {{Dongi.Api_HostAddress}}/groups/{{groupId}}/invite
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+POST {{Dongi.Api_HostAddress}}/groups/join
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "inviteCode": "{{inviteCode}}"
 }
 
 ###

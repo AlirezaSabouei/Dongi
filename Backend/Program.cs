@@ -31,12 +31,17 @@ var rateLimitingSettings = builder.Configuration
     .Get<RateLimitingSettings>() ?? new RateLimitingSettings();
 rateLimitingSettings.EnsureValid();
 
+var groupSettings = builder.Configuration
+    .GetSection(GroupSettings.SectionName)
+    .Get<GroupSettings>() ?? new GroupSettings();
+groupSettings.EnsureValid();
+
 // ---------------------------------------------------------------------------
 // Services
 // ---------------------------------------------------------------------------
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddDongiSwagger();
 
 // Secrets stay out of appsettings.json; supply them through user-secrets,
 // environment variables, or a local (git-ignored) file.
@@ -50,18 +55,23 @@ builder.Services.Configure<OtpSettings>(
     builder.Configuration.GetSection(OtpSettings.SectionName));
 builder.Services.Configure<RateLimitingSettings>(
     builder.Configuration.GetSection(RateLimitingSettings.SectionName));
+builder.Services.Configure<GroupSettings>(
+    builder.Configuration.GetSection(GroupSettings.SectionName));
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<IOtpCodeRepository, MongoOtpCodeRepository>();
 builder.Services.AddSingleton<IOtpRequestLimiter, MongoOtpRequestLimiter>();
 builder.Services.AddSingleton<IUserRepository, MongoUserRepository>();
+builder.Services.AddSingleton<IGroupRepository, MongoGroupRepository>();
 builder.Services.AddHostedService<MongoIndexInitializer>();
 
 builder.Services.AddSingleton<IOtpCodeHasher, OtpCodeHasher>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<IOtpService, OtpService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
+builder.Services.AddSingleton<IInviteCodeGenerator, InviteCodeGenerator>();
+builder.Services.AddSingleton<IGroupService, GroupService>();
 
 // SMS provider selection. ConsoleSmsSender logs the message (and thus the code)
 // and is only used for local development or when explicitly configured.
@@ -80,20 +90,27 @@ else
 }
 
 // Access tokens are HS256 JWTs with a configurable lifetime (7 days by default).
+// Bearer options are post-configured from IOptions<JwtSettings> so tests and
+// deployments that replace the settings through DI get matching validation.
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<Microsoft.Extensions.Options.IOptions<JwtSettings>>((options, configuredSettings) =>
     {
+        var settings = configuredSettings.Value;
+
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtSettings.Issuer,
+            ValidIssuer = settings.Issuer,
             ValidateAudience = true,
-            ValidAudience = jwtSettings.Audience,
+            ValidAudience = settings.Audience,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+                Encoding.UTF8.GetBytes(settings.Secret)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = JwtRegisteredClaimNames.Sub,
