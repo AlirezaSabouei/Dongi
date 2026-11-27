@@ -4,12 +4,12 @@ Vanilla HTML/CSS/JS frontend for Dongi, built as an installable progressive web
 app. No framework, no build step: the files in this folder are served as-is.
 
 This is **Epic 1** from
-[issue #5](https://github.com/AlirezaSabouei/Dongi/issues/5) on top of the
+[issue #5](https://github.com/AlirezaSabouei/Dongi/issues/5) and **Epic 2** from
+[issue #8](https://github.com/AlirezaSabouei/Dongi/issues/8) on top of the
 Epic 0 shell from [issue #2](https://github.com/AlirezaSabouei/Dongi/issues/2).
-It provides the shared shell, a multi-page auth flow, the API wrapper, phone +
-SMS code login, placeholder group pages, and offline support. Real group data
-arrives in later milestones. The ASP.NET Core API lives in
-[`Backend/`](../Backend/README.md).
+It provides the shared shell, a multi-page auth flow, the authenticated group
+list with create/join dialogs, group detail routes, and offline support. The
+ASP.NET Core API lives in [`Backend/`](../Backend/README.md).
 
 ## Language and direction
 
@@ -34,17 +34,17 @@ The interface is Persian (fa) and right-to-left:
 | --- | --- |
 | `index.html` | Small start-page gate: sends visitors to login or groups using the stored token |
 | `login.html` | Phone + SMS code form; starts the login flow |
-| `groups.html` | Sample group list + backend health check |
-| `group.html` | Group detail placeholder; reads `?id=` from the URL |
+| `groups.html` | Group list, create dialog, join dialog, `#/groups/{id}` detail, and hash router |
+| `group.html` | Legacy `?id=` entry point; redirects to `groups.html#/groups/{id}` |
 | `404.html` | Standalone not-found page |
 | `css/styles.css` | Responsive light/dark theme, no framework |
 | `js/guard.js` | Blocking auth guard loaded in each page's `<head>` |
 | `js/shell.js` | Shared chrome: connection badge, skip link, logout, API label, service worker |
 | `js/login.js` | Login validation, API calls, resend cooldown, token storage |
-| `js/groups.js` | Group list health check |
-| `js/group.js` | Fills the group id and title from `?id=` |
+| `js/groups.js` | Hash routes, list loading/empty/error states, create and join flows, detail rendering, 401 handling |
+| `js/group.js` | Legacy `group.html?id=` redirect |
 | `js/not-found.js` | Chrome for the 404 page |
-| `js/api.js` | `fetch` wrapper with configurable base URL, JSON handling, timeouts, `ApiError` |
+| `js/api.js` | `fetch` wrapper with configurable base URL, JSON handling, timeouts, bearer auth, `ApiError` |
 | `js/auth.js` | JWT storage in `localStorage` and phone/code normalization |
 | `js/config.js` | Runtime API base URL and timeout |
 | `js/pwa.js` | Service-worker registration and "new version" toast |
@@ -133,9 +133,9 @@ so no real SMS provider is needed to test the login flow.
    A valid number is posted to `POST /auth/request-code`.
 2. **Code.** A six-digit input calls `POST /auth/verify-code`. On success the
    JWT from the response is stored under `dongi.auth.token` in `localStorage`
-   and the browser navigates to `groups.html`. The resend button stays disabled
-   for 60 seconds after each successful request and then becomes available
-   again.
+   and the browser navigates to the groups list (`groups.html#/groups`). The
+   resend button stays disabled for 60 seconds after each successful request and
+   then becomes available again.
 
 Errors stay inline in the form: invalid phone, wrong/expired code (HTTP 401),
 too many attempts (429), and service unavailable (503). Network failures use the
@@ -150,7 +150,36 @@ token and returns to `login.html`; the token also survives reloads while it
 remains in `localStorage`.
 
 This guard is a UX convenience, not a security boundary: the API still has to
-authorize every request.
+authorize every request. Group requests attach the stored JWT as
+`Authorization: Bearer …`; a `401` on any group call clears the token and
+redirects to `login.html`, preserving the current group/join route in `next`.
+
+## Groups flow
+
+`groups.html` is a small hash router over the authenticated groups API:
+
+| Route | View |
+| --- | --- |
+| `groups.html#/groups` | Group list, create dialog, join dialog |
+| `groups.html#/groups/{id}` | Group detail for a member |
+| `groups.html#/join/{code}` | Group list with the join dialog pre-filled |
+
+- The list calls `GET /groups` and renders each group's name and member count.
+  While the request is in flight a loading state is shown. An empty response
+  shows **هنوز گروهی ندارید** (no groups yet); network and server failures show
+  an error card with **تلاش دوباره** (retry).
+- **گروه جدید** (create group) opens a modal with a name field. Whitespace-only
+  names are rejected locally, without an API call. `POST /groups` adds the
+  returned group to the top of the list without a full page reload.
+- **ورود با کد دعوت** (join with code) opens a modal and calls
+  `POST /groups/join`. A valid code routes to `#/groups/{id}`; an unknown code
+  shows the error inline and keeps the list route. The code is case-sensitive.
+- Opening `#/join/ABC123` directly opens the join modal with `ABC123` filled in,
+  so invite links shared by the backend
+  (`{Groups:FrontendBaseUrl}/#/join/{inviteCode}`) work.
+- The detail route fetches `GET /groups/{id}` and shows the name, member count,
+  creation date, and id. A `403`/`404` shows a not-found state.
+- Legacy `group.html?id={id}` links redirect to `groups.html#/groups/{id}`.
 
 ## Pages
 
@@ -158,14 +187,18 @@ authorize every request.
 | --- | --- | --- |
 | `index.html` | Start-page gate | Public; redirects to login or groups |
 | `login.html` | Phone + SMS code login | Signed-out only; signed-in users go to `groups.html` |
-| `groups.html` | Sample group list + backend health check | Requires a token |
-| `group.html?id=:id` | Group detail placeholder, e.g. `group.html?id=household` | Requires a token |
+| `groups.html#/groups` | Group list, create/join modals | Requires a token |
+| `groups.html#/groups/:id` | Group detail | Requires a token and membership |
+| `groups.html#/join/:code` | Join modal pre-filled from invite link | Requires a token |
+| `group.html?id=:id` | Legacy detail link; redirects to the hash route | Requires a token |
 | `404.html` | Not-found page | Public |
 
-Navigation uses ordinary links, so every page load is a full request. Old
-`#/login`, `#/groups`, and `#/groups/:id` links are translated by the
-`index.html` gate. Whether a missing URL serves `404.html` depends on the static
-host; `npx serve` and most hosts let you configure a custom 404 document.
+The shell pages still use ordinary links, so moving between login and groups is
+a full request; list/create/join/detail updates within `groups.html` use hash
+routes and do not reload. Old `#/login`, `#/groups`, `#/groups/:id`, and
+`#/join/:code` links are translated by the `index.html` gate. Whether a missing
+URL serves `404.html` depends on the static host; `npx serve` and most hosts let
+you configure a custom 404 document.
 
 ## PWA behaviour
 
@@ -173,11 +206,12 @@ host; `npx serve` and most hosts let you configure a custom 404 document.
   including maskable variants, plus app shortcuts to `groups.html` and
   `login.html`.
 - `service-worker.js` precaches all pages and shell assets on install.
-  Navigations are network-first with a cache fallback (including
-  `group.html?id=...`), so the app opens offline after the first visit; cached
-  shell assets are refreshed in the background.
-- Cross-origin API requests (health and auth) are never cached, so they always
-  hit the network.
+  Navigations are network-first with a cache fallback (including any
+  `groups.html#/groups/...` or `groups.html#/join/...` hash), so the app opens
+  offline after the first visit; cached shell assets are refreshed in the
+  background.
+- Cross-origin API requests (health, auth, and groups) are never cached, so they
+  always hit the network.
 - When a new service worker is waiting, a toast offers a reload instead of
   swapping the app underneath an open tab.
 
@@ -194,7 +228,8 @@ Run the backend (`dotnet run` in `Backend/`) and the frontend, then:
 
 1. **Happy path** — open `login.html`, submit `+989121234567` (any valid-looking
    number works in development), read the six-digit code from the **backend
-   console**, enter it, and confirm the browser lands on `groups.html`.
+   console**, enter it, and confirm the browser lands on
+   `groups.html#/groups`.
 2. **Validation without a request** — submit an empty phone or `09121234567`
    without a country code; a field error appears and DevTools → Network shows
    no `/auth/request-code` call.
@@ -214,16 +249,37 @@ Run the backend (`dotnet run` in `Backend/`) and the frontend, then:
 8. **Logout** — click **خروج** in the header; `dongi.auth.token` is removed and
    the browser navigates to `login.html`.
 
+Groups checks (issue #8):
+
+9. **Empty state** — with an account that belongs to no groups, open
+   `groups.html#/groups`; the empty state (not an empty list) is shown.
+10. **Create** — click **گروه جدید**, submit an empty name, and confirm an
+    inline error appears with **no** `POST /groups` request. Enter `Trip`,
+    submit, and confirm `Trip` appears in the list without a page reload.
+11. **Join with a valid code** — open the join modal, enter a valid invite code
+    from `GET /groups/{id}/invite`, and confirm the URL becomes
+    `groups.html#/groups/{id}` and the detail view renders.
+12. **Join with a bad code** — enter an unknown code; an inline error appears
+    and the URL stays on the list/join route.
+13. **Invite deep link** — while signed in, open
+    `groups.html#/join/ABC123`; the join modal is open and the code field is
+    pre-filled with `ABC123`.
+14. **Expired token** — replace `dongi.auth.token` with an invalid/expired JWT
+    and reload the list; the page redirects to `login.html` with a `next` route
+    and the token is cleared.
+15. **Legacy detail link** — open `group.html?id={id}`; the browser lands on
+    `groups.html#/groups/{id}` and renders the same group.
+
 Page checks:
 
 - **Manifest** — DevTools → Application → Manifest detects the name, start URL,
   display mode, and both icon sizes without errors.
 - **Service worker** — DevTools → Application → Service Workers shows
-  `service-worker.js` activated; Cache Storage contains `dongi-shell-v6` with
+  `service-worker.js` activated; Cache Storage contains `dongi-shell-v7` with
   the HTML pages and modules.
 - **Offline** — after one visit, switch DevTools → Network → **Offline** and
-  reload `groups.html` or `group.html?id=household`; the cached page still
-  renders.
+  reload `groups.html#/groups`; the cached shell still renders (API data is not
+  cached).
 - **Installability** — run Lighthouse against `http://localhost:5173` and check
   the installability audit, or use the address-bar install button.
 

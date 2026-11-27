@@ -303,7 +303,8 @@ function safeNextPage() {
     if (url.origin !== window.location.origin) return '';
     const file = url.pathname.split('/').pop();
     if (file !== 'groups.html' && file !== 'group.html') return '';
-    return `${file}${url.search}`;
+    if (url.hash && !/^#\/(groups|join)(\/|$)/.test(url.hash)) return '';
+    return `${file}${url.search}${url.hash}`;
   } catch {
     return '';
   }

@@ -845,6 +845,133 @@ h1[tabindex="-1"]:focus {
   }
 }
 
+.stat-value-small {
+  font-size: 1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.stat-value-mono {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.view-actions {
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.groups-status {
+  min-height: 0;
+  margin: -0.5rem 0 1rem;
+}
+
+.groups-status:empty {
+  display: none;
+}
+
+.groups-state {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+}
+
+.groups-state .skeleton-rows {
+  width: 100%;
+  margin: 0;
+}
+
+.groups-state .loading {
+  padding: 0;
+  text-align: start;
+}
+
+.empty-state {
+  justify-items: center;
+  padding-block: clamp(2rem, 5vw, 3rem);
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin-bottom: 0;
+}
+
+.empty-state .avatar {
+  font-size: 2rem;
+  background: var(--brand-soft);
+}
+
+.empty-state .button-row {
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Dialogs
+   -------------------------------------------------------------------------- */
+
+.modal {
+  width: min(100% - 2rem, 30rem);
+  max-height: min(90vh, 44rem);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+}
+
+.modal::backdrop {
+  background: rgb(8 15 30 / 0.6);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal-form {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(1.15rem, 3vw, 1.6rem);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* Keep the page behind a modal from scrolling where :has is supported. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
 /* --------------------------------------------------------------------------
    API check card
    -------------------------------------------------------------------------- */
@@ -981,6 +1108,15 @@ h1[tabindex="-1"]:focus {
 
   .status-pill {
     padding-inline: 0.6rem;
+  }
+
+  .view-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .view-actions .button {
+    flex: 1;
   }
 
   .app-footer {

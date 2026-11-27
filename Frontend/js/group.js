@@ -1,23 +1,14 @@
 /**
- * Group detail page: reads the group id from `?id=` and fills the static
- * placeholder markup. Real member/expense data arrives with the groups API.
+ * Legacy group-detail entry point.
+ *
+ * Group details are rendered by `groups.html` at `#/groups/{id}` so hash routes
+ * are shareable and survive refreshes. This module keeps the old
+ * `group.html?id=...` links working by translating them to the current route.
  */
 
-import { initShell } from './shell.js';
+const id = new URLSearchParams(window.location.search).get('id')?.trim() ?? '';
+const target = id
+  ? `groups.html#/groups/${encodeURIComponent(id)}`
+  : 'groups.html#/groups';
 
-initShell();
-initGroup();
-
-function initGroup() {
-  const rawId = new URLSearchParams(window.location.search).get('id') ?? '';
-  const id = rawId.trim();
-  const idTarget = document.querySelector('[data-group-id]');
-  const initials = document.querySelector('[data-group-initials]');
-
-  if (idTarget) idTarget.textContent = id || 'نامشخص';
-  if (initials) {
-    initials.textContent = id ? id.slice(0, 2).toUpperCase() : 'گ';
-  }
-
-  document.title = id ? `گروه ${id} · دنگی` : 'گروه · دنگی';
-}
+window.location.replace(target);

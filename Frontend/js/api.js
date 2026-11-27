@@ -8,6 +8,8 @@
  * the rest of the UI.
  */
 
+import { getAuthToken } from './auth.js';
+
 const DEFAULT_API_BASE_URL = 'http://192.168.1.8:8082';
 const DEFAULT_TIMEOUT_MS = 8000;
 const FA_NUMBER = new Intl.NumberFormat('fa-IR');
@@ -204,6 +206,81 @@ export function verifyLoginCode(phone, code, options = {}) {
     method: 'POST',
     body: { phone, code },
   });
+}
+
+/**
+ * Send an authenticated request. The stored JWT is attached as a bearer token
+ * at call time; a missing token leaves the request unauthenticated so the API
+ * can answer `401` and the page can redirect to login.
+ */
+function authenticatedRequest(path, options = {}) {
+  const headers = new Headers(options.headers);
+  const token = getAuthToken();
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return request(path, { ...options, headers });
+}
+
+/**
+ * List the groups the signed-in user belongs to, newest first.
+ * @param {object} [options]
+ * @returns {Promise<Array<{ id: string, name: string, ownerId: string, memberIds: string[], createdAt: string }>>}
+ */
+export function listGroups(options = {}) {
+  return authenticatedRequest('/groups', { ...options, method: 'GET' });
+}
+
+/**
+ * Create a group. The caller becomes its owner and first member.
+ * @param {string} name
+ * @param {object} [options]
+ */
+export function createGroup(name, options = {}) {
+  return authenticatedRequest('/groups', {
+    ...options,
+    method: 'POST',
+    body: { name },
+  });
+}
+
+/**
+ * Join a group with its invite code. Joining twice is safe.
+ * @param {string} inviteCode
+ * @param {object} [options]
+ */
+export function joinGroup(inviteCode, options = {}) {
+  return authenticatedRequest('/groups/join', {
+    ...options,
+    method: 'POST',
+    body: { inviteCode },
+  });
+}
+
+/**
+ * Read one group. Only members may read it.
+ * @param {string} id
+ * @param {object} [options]
+ */
+export function getGroup(id, options = {}) {
+  return authenticatedRequest(`/groups/${encodeURIComponent(id)}`, {
+    ...options,
+    method: 'GET',
+  });
+}
+
+/**
+ * Read a group's invite code and shareable join URL.
+ * @param {string} id
+ * @param {object} [options]
+ */
+export function getGroupInvite(id, options = {}) {
+  return authenticatedRequest(
+    `/groups/${encodeURIComponent(id)}/invite`,
+    { ...options, method: 'GET' },
+  );
 }
 
 async function parseResponse(response) {
