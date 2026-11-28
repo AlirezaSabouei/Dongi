@@ -1,0 +1,57 @@
+# Local development stack: MongoDB + API + static frontend.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Then:
+#   frontend  http://localhost:5173/  (or http://<host-lan-ip>:5173/)
+#   API       http://localhost:8082/  (or http://<host-lan-ip>:8082/)
+#   Swagger   http://localhost:8082/swagger
+#
+# The API runs in Development, so it uses the development JWT secret, the
+# console SMS sender, and the permissive CORS policy.
+name: dongi-dev
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MongoDb__ConnectionString: mongodb://mongo:27017
+      MongoDb__DatabaseName: dongi_dev
+      # Development already allows any origin; keep it explicit so this stack
+      # still works if the checked-in policy is tightened later.
+      Cors__AllowedOrigins__0: "*"
+    ports:
+      - "8082:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    volumes:
+      - ./Frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+volumes:
+  mongo-data:

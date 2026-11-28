@@ -96,11 +96,58 @@ The frontend is currently configured for the temporary development backend:
 | Swagger | <http://192.168.1.8:8082/swagger> |
 
 The browser machine must be able to reach that host, and the backend must allow
-the frontend origin through `Cors:AllowedOrigins`. With the command above the
-origin is `http://localhost:5173`, which the temporary backend currently allows;
-`http://127.0.0.1:5173` is not allowed, so use the `localhost` URL. The temporary
-API is plain HTTP, so serve the frontend over HTTP as well; an HTTPS-hosted
-frontend would be blocked as mixed content.
+the frontend origin through `Cors:AllowedOrigins`. For local/LAN development the
+backend currently allows **any origin** (`"AllowedOrigins": ["*"]`); API requests
+still require a JWT, so this only relaxes the browser CORS check. Replace `*`
+with the real frontend origin(s) before deploying. The temporary API is plain
+HTTP, so serve the frontend over HTTP as well; an HTTPS-hosted frontend would be
+blocked as mixed content.
+
+### Accessing from another device on the LAN
+
+To let another computer on the same network use the app:
+
+1. Find the host PC's LAN IP (`ip addr` on Linux, `ipconfig` on Windows). The
+   checked-in config assumes `192.168.1.8`.
+2. Start the backend bound to all interfaces on port `8082` (the port the
+   frontend expects):
+
+   ```bash
+   cd Backend
+   dotnet run --launch-profile lan
+   ```
+
+3. Serve the frontend so it is reachable from the network:
+
+   ```bash
+   npx serve Frontend -l 5173
+   ```
+
+4. On the other computer, open `http://192.168.1.8:5173/`.
+
+Or run the whole stack in Docker — MongoDB, the API, and this frontend:
+
+```bash
+# from the repository root
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The compose file sets `ASPNETCORE_ENVIRONMENT=Development` and the API port
+mapping for you, so no `launchSettings.json` or manual environment variables are
+needed.
+
+Because development CORS allows any origin, only these two need changing if the
+host IP changes (restart the backend afterwards):
+
+- `Backend/appsettings.Development.json` → `Groups:FrontendBaseUrl`
+- `Frontend/js/config.js` → `apiBaseUrl`
+
+Also allow inbound TCP `8082` (API) and `5173` (frontend) through the host
+firewall.
+
+When deploying, replace `"*"` in `Backend/appsettings.Development.json` with
+the actual frontend origin(s) — or configure it on the server — so the API is
+not open to arbitrary websites.
 
 `js/config.js` holds the base URL and timeout. Edit it to switch back to a local
 API, or override `window.DONGI_CONFIG` before `js/config.js` loads:

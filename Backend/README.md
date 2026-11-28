@@ -61,6 +61,28 @@ origin(s) before deploying (or set `Cors__AllowedOrigins__0` on the server).
 Allow inbound TCP `8082` through the firewall. `Groups:FrontendBaseUrl` should
 point at the frontend origin so invite links are usable from the other machine.
 
+### Docker Compose (local dev)
+
+[`docker-compose.dev.yml`](../docker-compose.dev.yml) starts MongoDB, the API,
+and the static frontend together:
+
+```bash
+# from the repository root
+docker compose -f docker-compose.dev.yml up --build
+```
+
+| Service | URL |
+| --- | --- |
+| Frontend | <http://localhost:5173/> (or the host's LAN IP) |
+| API | <http://localhost:8082/> |
+| Swagger | <http://localhost:8082/swagger> |
+
+The API container explicitly sets `ASPNETCORE_ENVIRONMENT=Development`
+(`launchSettings.json` is not used inside containers), connects to the bundled
+MongoDB, and uses the console SMS sender. Stop it with
+`docker compose -f docker-compose.dev.yml down`; add `-v` to remove the MongoDB
+volume as well.
+
 To exercise the Production pipeline locally, use the `http-production` profile or
 skip the launch profile:
 
